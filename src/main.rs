@@ -100,8 +100,7 @@ This option will deny those images; be careful as this may disable cluster insta
             .value_name("allow_prefixes")
             .help("Images that begin with any of the listed prefixes will be allowed in validation callbaks.
 Separate with a comma or use quotes and spaces.
-For example 'quay.io/coreos,myhost.com/' will match quay.io/coreos/etcd and myhost.com/myimage/myrepo:tag.
-Use docker.io as the hostname for the Docker Hub.")
+For example 'quay.io/coreos,myhost.com/' will match quay.io/coreos/etcd and myhost.com/myimage/myrepo:tag.")
             .takes_value(true)
         )
         .arg(
@@ -109,14 +108,10 @@ Use docker.io as the hostname for the Docker Hub.")
             .long("allow-images")
             .value_name("allow_images")
             .help("Images that match a full name in the list will be allowed in validation callbacks.
-Separate with a comma or use quotes and spaces. Include the hostname.
-For example 'quay.io/coreos/etcd:latest'. Use docker.io as the hostname for the Docker Hub.")
-            .takes_value(true)
+Separate with a comma or use quotes and spaces. Include the hostname.")
         )
-
         .arg(
             Arg::new("disallow-local-prefixes")
-            .long("disallow-local-prefixes")
             .value_name("disallow_local_prefixes")
             .help("Disallow local images that match the prefix _not_ including any host name.
 For example 'beta' will match myhost.com/beta/myapp assuming myhost.com is the name of this registry.")
@@ -163,6 +158,16 @@ Must be used with --user")
             .value_name("version")
             .help("Get the version number of Trow")
             .takes_value(false)
+        )
+        .arg(
+            Arg::new("proxy-registry-config-dir")
+                .help("Local directory with configuration for proxy any registry at f/${registryCfgDir}/<repo_name> to anyregistry.xyz/<repo_name>. Downloaded images will be cached.
+Directory should contain sub directories which should correspond to ${registryCfgDir}.
+Each of them contains file .dockerconfigjson which should be in format as of kubernetes.io/dockerconfigjson.
+The intention is to directly support mounting k8s secrets (imagePullSecrets) in kubernetes and act as proxy according to their configuration.
+As of now config dir is parsed each request, to be able  to reflect changes in secrets. It may change in future."
+                )
+                .takes_value(true)
         )
         .arg(
             Arg::new("proxy-docker-hub")
@@ -251,6 +256,7 @@ fn main() {
     let host_names_str = matches.value_of("names").unwrap_or(host);
     let host_names = parse_list(host_names_str);
     let dry_run = matches.is_present("dry-run");
+    let proxy_registry_config_dir = matches.value_of("proxy-registry-config-dir").unwrap_or("./proxy-registry-config");
     let proxy_hub = matches.is_present("proxy-docker-hub");
 
     let default_manifest_size: u32 = 4; //mebibytes
@@ -289,6 +295,7 @@ fn main() {
         addr,
         "127.0.0.1:51000".to_string(),
         host_names,
+        proxy_registry_config_dir.to_string(),
         proxy_hub,
         allow_prefixes,
         allow_images,
