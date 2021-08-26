@@ -8,7 +8,7 @@ mod interface_tests {
 
     use crate::common;
     use rand::Rng;
-    use reqwest;
+
     use reqwest::StatusCode;
     use std::fs::{self, File};
     use std::io::{BufReader, Read};
@@ -79,7 +79,7 @@ mod interface_tests {
                 "{}/v2/{}/blobs/uploads/?digest={}",
                 TROW_ADDRESS, "config", digest
             ))
-            .body(config.clone())
+            .body(config)
             .send()
             .await
             .unwrap();
@@ -102,10 +102,10 @@ mod interface_tests {
         }
 
         let manifest = format!(
-            r#"{{ "mediaType": "application/vnd.oci.image.manifest.v1+json", 
-                 "config": {{ "digest": "{}", 
-                             "mediaType": "application/vnd.oci.image.config.v1+json", 
-                             "size": {} }}, 
+            r#"{{ "mediaType": "application/vnd.oci.image.manifest.v1+json",
+                 "config": {{ "digest": "{}",
+                             "mediaType": "application/vnd.oci.image.config.v1+json",
+                             "size": {} }},
                  "layers": [
                     {{
                               "mediaType": "application/vnd.docker.image.rootfs.foreign.diff.tar.gzip",
@@ -165,7 +165,7 @@ mod interface_tests {
         // type should be decided by caller, but this is just a test
         let x: serde_json::Value = resp.json().await.unwrap();
 
-        return x;
+        x
     }
 
     /**

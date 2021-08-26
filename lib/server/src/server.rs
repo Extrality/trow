@@ -11,18 +11,12 @@ use std::sync::{Arc, RwLock};
 
 use chrono::prelude::*;
 use failure::{self, Error, Fail};
-use futures::TryFutureExt;
 use prost_types::Timestamp;
 use quoted_string::strip_dquotes;
-use reqwest::header::ToStrError;
 use reqwest::{
     self,
-    header::{HeaderMap, HeaderValue},
-    StatusCode,
+    header::{HeaderMap, HeaderValue}
 };
-use rustc_serialize::hex::ToHex;
-use rustc_serialize::json::ToJson;
-use serde_json::Value;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
@@ -442,10 +436,10 @@ impl TrowServer {
                 },
             )
         } else {
-            let nextSlash = proxy_name.find("/");
-            match nextSlash {
+            let next_slash = proxy_name.find("/");
+            match next_slash {
                 Some(i) => {
-                    let mut registry_config_dir_name = proxy_name[..i].to_string();
+                    let registry_config_dir_name = proxy_name[..i].to_string();
                     debug!("Registry config name {}", registry_config_dir_name);
 
                     let docker_config_json = Path::new(&self.proxy_registry_config_dir)
@@ -629,21 +623,21 @@ impl TrowServer {
 
         bearer_param_map.remove("realm");
 
-        let reqBuilder = cl.get(realm.as_str()).query(&bearer_param_map);
+        let req_builder = cl.get(realm.as_str()).query(&bearer_param_map);
 
-        let reqBuilder = match auth {
+        let req_builder = match auth {
             Some(a) => {
                 if a.user.is_some() {
                     debug!("Auth is used with user: {:?}", a.user.as_ref().unwrap());
-                    reqBuilder.basic_auth(&a.user.as_ref().unwrap(), a.pass.as_ref())
+                    req_builder.basic_auth(&a.user.as_ref().unwrap(), a.pass.as_ref())
                 } else {
-                    reqBuilder
+                    req_builder
                 }
             }
-            None => reqBuilder,
+            None => req_builder,
         };
 
-        let resp = reqBuilder.send().await.or_else(|e| {
+        let resp = req_builder.send().await.or_else(|e| {
             Err(format_err!(
                 "Failed to send authenticate to {} request: {}",
                 realm,
