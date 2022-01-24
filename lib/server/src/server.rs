@@ -546,7 +546,7 @@ impl TrowServer {
         &self,
         reference: &str,
         proxy_name: String,
-        mut address: String,
+        address: String,
         config_dir: String,
         auth: Auth,
     ) -> Result<(Image, Option<Auth>), Error> {

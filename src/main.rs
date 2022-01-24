@@ -100,7 +100,8 @@ This option will deny those images; be careful as this may disable cluster insta
             .value_name("allow_prefixes")
             .help("Images that begin with any of the listed prefixes will be allowed in validation callbaks.
 Separate with a comma or use quotes and spaces.
-For example 'quay.io/coreos,myhost.com/' will match quay.io/coreos/etcd and myhost.com/myimage/myrepo:tag.")
+For example 'quay.io/coreos,myhost.com/' will match quay.io/coreos/etcd and myhost.com/myimage/myrepo:tag.
+Use docker.io as the hostname for the Docker Hub.")
             .takes_value(true)
         )
         .arg(
@@ -108,7 +109,9 @@ For example 'quay.io/coreos,myhost.com/' will match quay.io/coreos/etcd and myho
             .long("allow-images")
             .value_name("allow_images")
             .help("Images that match a full name in the list will be allowed in validation callbacks.
-Separate with a comma or use quotes and spaces. Include the hostname.")
+Separate with a comma or use quotes and spaces. Include the hostname.
+For example 'quay.io/coreos/etcd:latest'. Use docker.io as the hostname for the Docker Hub.")
+            .takes_value(true)
         )
         .arg(
             Arg::new("disallow-local-prefixes")
