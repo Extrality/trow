@@ -66,104 +66,106 @@ fn parse_args() -> ArgMatches {
         )
         .arg(
             Arg::new("names")
-            .short('n')
-            .long("names")
-            .value_name("names")
-            .help("Host names for registry. Used in validation callbacks. Separate with comma or use quotes and spaces")
-            .takes_value(true),
+                .short('n')
+                .long("names")
+                .value_name("names")
+                .help("Host names for registry. Used in validation callbacks. Separate with comma or use quotes and spaces")
+                .takes_value(true),
         )
         .arg(
             Arg::new("dry-run")
-            .long("dry-run")
-            .value_name("dry_run")
-            .help("Don't acutally run Trow, just validate arguments. For testing purposes.")
-            .takes_value(false),
+                .long("dry-run")
+                .value_name("dry_run")
+                .help("Don't acutally run Trow, just validate arguments. For testing purposes.")
+                .takes_value(false),
         )
         .arg(
             Arg::new("allow-docker-official")
-            .long("allow-docker-official")
-            .value_name("allow_docker_official")
-            .help("Docker official images (e.g. the debian base image) will be allowed in validation callbacks.")
-            .takes_value(false)
+                .long("allow-docker-official")
+                .value_name("allow_docker_official")
+                .help("Docker official images (e.g. the debian base image) will be allowed in validation callbacks.")
+                .takes_value(false)
         )
         .arg(
             Arg::new("deny-k8s-images")
-            .long("deny-k8s-images")
-            .value_name("deny_k8s_images")
-            .help("By default, validation callbacks will allow various Kubernetes system images by default.
-This option will deny those images; be careful as this may disable cluster installation and updates.")
-            .takes_value(false)
+                .long("deny-k8s-images")
+                .value_name("deny_k8s_images")
+                .help("By default, validation callbacks will allow various Kubernetes system images by default.
+    This option will deny those images; be careful as this may disable cluster installation and updates.")
+                .takes_value(false)
         )
         .arg(
             Arg::new("allow-prefixes")
-            .long("allow-prefixes")
-            .value_name("allow_prefixes")
-            .help("Images that begin with any of the listed prefixes will be allowed in validation callbaks.
+                .long("allow-prefixes")
+                .value_name("allow_prefixes")
+                .help("Images that begin with any of the listed prefixes will be allowed in validation callbaks.
 Separate with a comma or use quotes and spaces.
 For example 'quay.io/coreos,myhost.com/' will match quay.io/coreos/etcd and myhost.com/myimage/myrepo:tag.
 Use docker.io as the hostname for the Docker Hub.")
-            .takes_value(true)
+                .takes_value(true)
         )
         .arg(
             Arg::new("allow-images")
-            .long("allow-images")
-            .value_name("allow_images")
-            .help("Images that match a full name in the list will be allowed in validation callbacks.
+                .long("allow-images")
+                .value_name("allow_images")
+                .help("Images that match a full name in the list will be allowed in validation callbacks.
 Separate with a comma or use quotes and spaces. Include the hostname.
 For example 'quay.io/coreos/etcd:latest'. Use docker.io as the hostname for the Docker Hub.")
-            .takes_value(true)
+                .takes_value(true)
         )
         .arg(
             Arg::new("disallow-local-prefixes")
-            .value_name("disallow_local_prefixes")
-            .help("Disallow local images that match the prefix _not_ including any host name.
+                .value_name("disallow_local_prefixes")
+                .help("Disallow local images that match the prefix _not_ including any host name.
 For example 'beta' will match myhost.com/beta/myapp assuming myhost.com is the name of this registry.")
-            .takes_value(true)
+                .takes_value(true)
         )
         .arg(
             Arg::new("disallow-local-images")
-            .long("disallow-local-images")
-            .value_name("disallow_local_images")
-            .help("Disallow local images that match the full name _not_ including any host name.
+                .long("disallow-local-images")
+                .value_name("disallow_local_images")
+                .help("Disallow local images that match the full name _not_ including any host name.
 For example 'beta/myapp:tag' will match myhost.com/beta/myapp:tag assuming myhost.com is the name of this registry.")
-            .takes_value(true)
+                .takes_value(true)
         )
         .arg(
             Arg::new("user")
-            .long("user")
-            .short('u')
-            .value_name("user")
-            .help("Set the username that can be used to access Trow (e.g. via docker login).
+                .long("user")
+                .short('u')
+                .value_name("user")
+                .help("Set the username that can be used to access Trow (e.g. via docker login).
 Must be used with --password or --password-file")
-            .takes_value(true)
+                .takes_value(true)
         )
         .arg(
             Arg::new("password")
-            .long("password")
-            .short('p')
-            .value_name("password")
-            .help("Set the password that can be used to access Trow (e.g. via docker login).
+                .long("password")
+                .short('p')
+                .value_name("password")
+                .help("Set the password that can be used to access Trow (e.g. via docker login).
 Must be used with --user")
-            .takes_value(true)
+                .takes_value(true)
         )
         .arg(
             Arg::new("password-file")
-            .long("password-file")
-            .value_name("password-file")
-            .help("Location of file with password that can be used to access Trow (e.g. via docker login).
+                .long("password-file")
+                .value_name("password-file")
+                .help("Location of file with password that can be used to access Trow (e.g. via docker login).
 Must be used with --user")
-            .takes_value(true)
+                .takes_value(true)
         )
         .arg(
             Arg::new("version")
-            .long("version")
-            .short('v')
-            .value_name("version")
-            .help("Get the version number of Trow")
-            .takes_value(false)
+                .long("version")
+                .short('v')
+                .value_name("version")
+                .help("Get the version number of Trow")
+                .takes_value(false)
         )
         .arg(
             Arg::new("proxy-registry-config-dir")
+                .long("proxy-registry-config-dir")
+                .value_name("proxy_registry_config_dir")
                 .help("Local directory with configuration for proxy any registry at f/${registryCfgDir}/<repo_name> to anyregistry.xyz/<repo_name>. Downloaded images will be cached.
 Directory should contain sub directories which should correspond to ${registryCfgDir}.
 Each of them contains file .dockerconfigjson which should be in format as of kubernetes.io/dockerconfigjson.
@@ -174,32 +176,32 @@ As of now config dir is parsed each request, to be able  to reflect changes in s
         )
         .arg(
             Arg::new("proxy-docker-hub")
-            .long("proxy-docker-hub")
-            .value_name("proxy-docker-hub")
-            .help("Proxies repos at f/docker/<repo_name> to docker.io/<repo_name>. Downloaded images will be cached.")
-            .takes_value(false)
+                .long("proxy-docker-hub")
+                .value_name("proxy-docker-hub")
+                .help("Proxies repos at f/docker/<repo_name> to docker.io/<repo_name>. Downloaded images will be cached.")
+                .takes_value(false)
         )
         .arg(
             Arg::new("hub-user")
-            .long("hub-user")
-            .value_name("hub-user")
-            .help("Set the username for accessing the Docker Hub, used when proxying Docker Hub images.
+                .long("hub-user")
+                .value_name("hub-user")
+                .help("Set the username for accessing the Docker Hub, used when proxying Docker Hub images.
 Must be used with --hub-token or --hub-token-file")
-            .takes_value(true)
+                .takes_value(true)
         )
         .arg(
             Arg::new("hub-token")
-            .long("hub-token")
-            .value_name("hub-token")
-            .help("Set the token for accessing the Docker Hub, used when proxying Docker Hub images")
-            .takes_value(true)
+                .long("hub-token")
+                .value_name("hub-token")
+                .help("Set the token for accessing the Docker Hub, used when proxying Docker Hub images")
+                .takes_value(true)
         )
         .arg(
             Arg::new("hub-token-file")
-            .long("hub-token-file")
-            .value_name("hub-token-file")
-            .help("Location of file with token that can be used for accessing the Docker Hub, used when proxying Docker Hub images")
-            .takes_value(true)
+                .long("hub-token-file")
+                .value_name("hub-token-file")
+                .help("Location of file with token that can be used for accessing the Docker Hub, used when proxying Docker Hub images")
+                .takes_value(true)
         )
         .arg(
             Arg::new("enable-cors")
@@ -208,24 +210,24 @@ Must be used with --hub-token or --hub-token-file")
         )
         .arg(
             Arg::new("max-manifest-size")
-            .long("max-manifest-size")
-            .value_name("max-manifest-size")
-            .help("Maximum size in mebibytes of manifest file that can be uploaded. This is JSON metada, so usually relatively small.")
-            .takes_value(true)
+                .long("max-manifest-size")
+                .value_name("max-manifest-size")
+                .help("Maximum size in mebibytes of manifest file that can be uploaded. This is JSON metada, so usually relatively small.")
+                .takes_value(true)
         )
         .arg(
             Arg::new("max-blob-size")
-            .long("max-blob-size")
-            .value_name("max-blob-size")
-            .help("Maximum size in mebibytes of \"blob\" that can be uploaded (a single layer of an image). This can be very large in some images (GBs).")
-            .takes_value(true)
+                .long("max-blob-size")
+                .value_name("max-blob-size")
+                .help("Maximum size in mebibytes of \"blob\" that can be uploaded (a single layer of an image). This can be very large in some images (GBs).")
+                .takes_value(true)
         )
         .arg(
             Arg::new("log-level")
-            .long("log-level")
-            .value_name("log-level")
-            .help("The log level at which to output to stdout, valid values are OFF, ERROR, WARN, INFO, DEBUG and TRACE")
-            .takes_value(true)
+                .long("log-level")
+                .value_name("log-level")
+                .help("The log level at which to output to stdout, valid values are OFF, ERROR, WARN, INFO, DEBUG and TRACE")
+                .takes_value(true)
         )
         .get_matches()
 }
