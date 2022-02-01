@@ -13,8 +13,8 @@ use std::sync::{Arc, RwLock};
 use chrono::prelude::*;
 use failure::format_err;
 use failure::{self, Error, Fail};
-use log::{debug, error, info, warn};
 use lazy_static::lazy_static;
+use log::{debug, error, info, warn};
 use prost_types::Timestamp;
 use quoted_string::strip_dquotes;
 use regex::Regex;
@@ -24,11 +24,11 @@ use reqwest::{
 };
 use rusoto_core::region;
 use rusoto_ecr::{Ecr, EcrClient};
+use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
 use uuid::Uuid;
-use serde::{Serialize, Deserialize};
 
 use crate::digest::sha256_tag_digest;
 use crate::manifest::{manifest_media_type, FromJson, Manifest};
