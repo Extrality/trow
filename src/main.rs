@@ -18,7 +18,7 @@ const DEFAULT_KEY_PATH: &str = "./certs/domain.key";
 */
 fn parse_args() -> ArgMatches {
     clap::Command::new(PROGRAM_NAME)
-        .version("0.1")
+        .version(env!("CARGO_PKG_VERSION"))
         .author("From Container Solutions")
         .about(PROGRAM_DESC)
         .arg(
@@ -106,14 +106,6 @@ Must be used with --user")
             .num_args(1)
         )
         .arg(
-            Arg::new("version")
-            .long("version")
-            .short('v')
-            .value_name("version")
-            .help("Get the version number of Trow")
-            .num_args(0)
-        )
-        .arg(
             Arg::new("image-validation-config-file")
             .long("image-validation-config-file")
             .value_name("FILE")
@@ -158,12 +150,6 @@ Must be used with --user")
 
 fn main() {
     let matches = parse_args();
-
-    if matches.get_flag("version") {
-        let vcs_ref = env::var("VCS_REF").unwrap_or_default();
-        println!("Trow version {} {}", env!("CARGO_PKG_VERSION"), vcs_ref);
-        std::process::exit(0);
-    }
 
     let fallback_log_level = env::var("RUST_LOG").unwrap_or_else(|_| "error".to_string());
     let log_level = matches.get_one("log-level").unwrap_or(&fallback_log_level);
