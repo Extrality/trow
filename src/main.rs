@@ -157,16 +157,33 @@ fn main() {
     let matches = parse_args();
 
     let fallback_log_level = env::var("RUST_LOG").unwrap_or_else(|_| "error".to_string());
-    let log_level = matches.get_one("log-level").unwrap_or(&fallback_log_level);
+    let log_level = matches
+        .get_one::<String>("log-level")
+        .unwrap_or(&fallback_log_level);
     let no_tls = matches.get_flag("no-tls");
-    let host = *matches.get_one("host").unwrap_or(&"0.0.0.0");
+    let host = matches
+        .get_one::<String>("host")
+        .map(String::as_str)
+        .unwrap_or("0.0.0.0");
     let default_port = if no_tls { 8000 } else { 8443 };
     let port: u16 = *matches.get_one::<u16>("port").unwrap_or(&default_port);
-    let cert_path = *matches.get_one("cert").unwrap_or(&"./certs/domain.crt");
-    let key_path = *matches.get_one("key").unwrap_or(&"./certs/domain.key");
-    let data_path = *matches.get_one("data-dir").unwrap_or(&"./data");
+    let cert_path = matches
+        .get_one::<String>("cert")
+        .map(String::as_str)
+        .unwrap_or("./certs/domain.crt");
+    let key_path = matches
+        .get_one::<String>("key")
+        .map(String::as_str)
+        .unwrap_or("./certs/domain.key");
+    let data_path = matches
+        .get_one::<String>("data-dir")
+        .map(String::as_str)
+        .unwrap_or("./data");
 
-    let host_name = *matches.get_one("name").unwrap_or(&host);
+    let host_name = matches
+        .get_one::<String>("name")
+        .map(String::as_str)
+        .unwrap_or(host);
     let dry_run = matches.get_flag("dry-run");
 
     let default_manifest_size: u32 = 4; //mebibytes
@@ -199,18 +216,18 @@ fn main() {
         builder.with_tls(cert_path.to_string(), key_path.to_string());
     }
     if matches.get_flag("user") {
-        let user = *matches
-            .get_one::<&str>("user")
+        let user = matches
+            .get_one::<String>("user")
             .expect("Failed to read user name");
 
         if matches.get_flag("password") {
-            let pass = *matches
-                .get_one::<&str>("password")
+            let pass = matches
+                .get_one::<String>("password")
                 .expect("Failed to read user password");
             builder.with_user(user.to_string(), pass.to_string());
         } else if matches.get_flag("password-file") {
-            let file_name = *matches
-                .get_one::<&str>("password-file")
+            let file_name = matches
+                .get_one::<String>("password-file")
                 .expect("Failed to read user password file");
             let mut file = File::open(file_name)
                 .unwrap_or_else(|_| panic!("Failed to read password file {}", file_name));
@@ -232,13 +249,13 @@ fn main() {
             std::process::exit(1);
         }
     }
-    if let Some(&config_file) = matches.get_one::<&str>("proxy-registry-config-file") {
+    if let Some(config_file) = matches.get_one::<String>("proxy-registry-config-file") {
         if let Err(e) = builder.with_proxy_registries(config_file) {
             eprintln!("Failed to load proxy registry config file: {:#}", e);
             std::process::exit(1);
         }
     }
-    if let Some(&config_file) = matches.get_one::<&str>("image-validation-config-file") {
+    if let Some(config_file) = matches.get_one::<String>("image-validation-config-file") {
         if let Err(e) = builder.with_image_validation(config_file) {
             eprintln!("Failed to load image validation config file: {:#}", e);
             std::process::exit(1);
