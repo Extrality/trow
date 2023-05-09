@@ -39,6 +39,7 @@ fn parse_args() -> ArgMatches {
             Arg::new("no-tls")
                 .long("no-tls")
                 .help("Turns off TLS. Normally only used in development and debugging. If used in production, make sure you understand the risks.")
+                .num_args(0)
         )
         .arg(
             Arg::new("cert")
@@ -123,6 +124,7 @@ Must be used with --user")
             Arg::new("enable-cors")
                 .long("enable-cors")
                 .help("Enable Cross-Origin Resource Sharing(CORS) requests. Used to allow access from web apps (e.g. GUIs).")
+                .num_args(0)
         )
         .arg(
             Arg::new("max-manifest-size")
