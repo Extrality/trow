@@ -215,25 +215,15 @@ fn main() {
     if !no_tls {
         builder.with_tls(cert_path.to_string(), key_path.to_string());
     }
-    if matches.get_flag("user") {
-        let user = matches
-            .get_one::<String>("user")
-            .expect("Failed to read user name");
-
-        if matches.get_flag("password") {
-            let pass = matches
-                .get_one::<String>("password")
-                .expect("Failed to read user password");
+    if let Some(user) = matches.get_one::<String>("user") {
+        if let Some(pass) = matches.get_one::<String>("password") {
             builder.with_user(user.to_string(), pass.to_string());
-        } else if matches.get_flag("password-file") {
-            let file_name = matches
-                .get_one::<String>("password-file")
-                .expect("Failed to read user password file");
-            let mut file = File::open(file_name)
-                .unwrap_or_else(|_| panic!("Failed to read password file {}", file_name));
+        } else if let Some(pass_file) = matches.get_one::<String>("password-file") {
+            let mut file = File::open(pass_file)
+                .unwrap_or_else(|_| panic!("Failed to read password file {}", pass_file));
             let mut pass = String::new();
             file.read_to_string(&mut pass)
-                .unwrap_or_else(|_| panic!("Failed to read password file {}", file_name));
+                .unwrap_or_else(|_| panic!("Failed to read password file {}", pass_file));
 
             //Remove final newline if present
             if pass.ends_with('\n') {
