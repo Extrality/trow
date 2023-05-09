@@ -33,7 +33,8 @@ fn parse_args() -> ArgMatches {
                 .long("port")
                 .value_name("port")
                 .help("The port that trow will listen on. Defaults to 8443 with TLS, 8000 without.")
-                .num_args(1),
+                .num_args(1)
+                .value_parser(clap::value_parser!(u16)),
         )
         .arg(
             Arg::new("no-tls")
@@ -132,6 +133,7 @@ Must be used with --user")
             .value_name("max-manifest-size")
             .help("Maximum size in mebibytes of manifest file that can be uploaded. This is JSON metada, so usually relatively small.")
             .num_args(1)
+            .value_parser(clap::value_parser!(u32))
         )
         .arg(
             Arg::new("max-blob-size")
@@ -139,6 +141,7 @@ Must be used with --user")
             .value_name("max-blob-size")
             .help("Maximum size in mebibytes of \"blob\" that can be uploaded (a single layer of an image). This can be very large in some images (GBs).")
             .num_args(1)
+            .value_parser(clap::value_parser!(u32))
         )
         .arg(
             Arg::new("log-level")
