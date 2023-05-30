@@ -21,21 +21,6 @@ jobs:
         override: true
         default: true
         components: rustfmt
-
-    - name: Install certs
-      run: |
-        cd utils/self-cert && ./make-certs.sh && cd ../..
-        mkdir certs
-        cp utils/self-cert/domain.crt ./certs/
-        cp utils/self-cert/domain.key ./certs/
-    - name: Add trow.test to hosts
-      run: |
-        echo "127.0.0.1 trow.test" | sudo tee -a /etc/hosts
-    - name: Check trow.test is accessible
-      # skip step when using act
-      if: ${{ !env.ACT }}
-      run: |
-        ping -c 1 trow.test
     - name: Run Cargo check
       uses: actions-rs/cargo@v1
       with:
@@ -53,7 +38,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: test
-        args: -p trow --verbose -- --test-threads=1
+        args: -p trow --verbose
     - name: Smoke test
       uses: actions-rs/cargo@v1
       with:
