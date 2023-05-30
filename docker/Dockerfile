@@ -22,7 +22,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 COPY Cargo.toml .
 COPY Cargo.lock .
-COPY .cargo/config .cargo/config
+COPY .cargo/config.toml .cargo/config.toml
 COPY trow-server/ trow-server/
 COPY trow-protobuf/ trow-protobuf/
 COPY src src
