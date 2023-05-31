@@ -225,8 +225,9 @@ mod test {
             RemoteImage {
                 host: "quay.io:99".to_string(),
                 repo: "myimage".to_string(),
-                reference: "sha256:1e428d8e87bcc9cd156539c5afeb60075a518b20d2d4657db962df90e6552fa5"
-                    .to_string(),
+                reference:
+                    "sha256:1e428d8e87bcc9cd156539c5afeb60075a518b20d2d4657db962df90e6552fa5"
+                        .to_string(),
                 ..Default::default()
             }
         );

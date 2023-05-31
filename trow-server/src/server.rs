@@ -11,7 +11,6 @@ use async_recursion::async_recursion;
 use chrono::prelude::*;
 use futures::future::try_join_all;
 use log::{debug, error, info, warn};
-use prometheus::local;
 use prost_types::Timestamp;
 use reqwest::Method;
 use reqwest::{
@@ -21,6 +20,7 @@ use reqwest::{
 use thiserror::Error;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
+use tokio::time::Duration;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
 use uuid::Uuid;
@@ -369,10 +369,15 @@ impl TrowServer {
             return Ok(());
         }
         let path = self.scratch_path.join(digest);
-        let mut file = match TemporaryFile::open_for_writing(path).await? {
+        let mut file = match TemporaryFile::open_for_writing(path.clone()).await? {
             Some(f) => f,
             None => {
-                info!("Skip concurrently fetched blob {}", digest);
+                info!("Waiting for concurrently fetched blob {}", digest);
+                while path.exists() {
+                    // wait for download to be done (temp file to be moved)
+                    // TODO: use notify crate instead
+                    tokio::time::sleep(Duration::from_millis(200)).await;
+                }
                 return Ok(());
             }
         };
@@ -480,7 +485,7 @@ impl TrowServer {
     }
 
     /// returns the downloaded digest
-    async fn download_remote_manifest(
+    async fn download_remote_image(
         &self,
         remote_image: RemoteImage,
         proxy_cfg: RegistryProxyConfig,
@@ -577,9 +582,7 @@ impl TrowServer {
                 "Request for proxied repo {}:{} maps to {}",
                 repo_name, reference, remote_image
             );
-            let digest = self
-                .download_remote_manifest(remote_image, proxy_cfg)
-                .await?;
+            let digest = self.download_remote_image(remote_image, proxy_cfg).await?;
             // These are not up to date and should not be used !
             drop(repo_name);
             drop(reference);
