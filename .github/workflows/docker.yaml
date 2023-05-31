@@ -8,6 +8,8 @@ on:
 
 jobs:
   upload_images:
+    outputs:
+      container-image: ${{ steps.build-images.outputs.container-image }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -27,18 +29,15 @@ jobs:
           platforms: linux/amd64,linux/arm64
       - uses: sigstore/cosign-installer@main
       - name: Build and push multi-arch image
-        run: |
-          ./docker/multi-arch.sh
-          docker build -f ./docker/Dockerfile.notls -t ghcr.io/extrality/trow:no-tls ./
-          docker push ghcr.io/extrality/trow:no-tls
-          cosign sign --yes ghcr.io/extrality/trow:no-tls
+        id: build-images
+        run: ./docker/multi-arch.sh
         env:
           COSIGN_EXPERIMENTAL: 1
 
   conformance_tests:
     services:
       trow:
-        image: ghcr.io/extrality/trow:no-tls
+        image: ${{ needs.upload_images.outputs.container-image }}
     needs: upload_images
     runs-on: ubuntu-latest
     steps:
