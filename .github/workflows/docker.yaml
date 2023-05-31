@@ -30,8 +30,8 @@ jobs:
         run: |
           ./docker/multi-arch.sh
           docker build -f ./docker/Dockerfile.notls -t ghcr.io/extrality/trow:notls ./
-          docker push ghcr.io/extrality/trow:notls
-          cosign sign --yes ghcr.io/extrality/trow:notls
+          docker push ghcr.io/extrality/trow:no-tls
+          cosign sign --yes ghcr.io/extrality/trow:no-tls
         env:
           COSIGN_EXPERIMENTAL: 1
 
@@ -42,12 +42,6 @@ jobs:
     needs: upload_images
     runs-on: ubuntu-latest
     steps:
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Run OCI Distribution Spec conformance tests
         uses: opencontainers/distribution-spec@main
         env:
