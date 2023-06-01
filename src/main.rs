@@ -26,11 +26,13 @@ struct Args {
     )]
     port: u16,
 
-    /// Path to TLS certificate
+    /// Path to TLS certificate and key, separated by ','
     #[arg(
         long,
-        num_args(2),
-        default_missing_value = "./certs/domain.crt ./certs/domain.crt"
+        num_args(0..2),
+        default_missing_value = "./certs/domain.crt,./certs/domain.key",
+        require_equals(true),
+        value_delimiter(',')
     )]
     tls: Option<Vec<String>>,
 
@@ -113,6 +115,10 @@ fn main() {
         args.log_level,
     );
     if let Some(tls) = args.tls {
+        if tls.len() != 2 {
+            eprintln!("tls must be a pair of paths, cert then key (got: {tls:?})");
+            std::process::exit(1);
+        }
         builder.with_tls(tls[0].clone(), tls[1].clone());
     }
     if let Some(user) = args.user {
