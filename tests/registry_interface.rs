@@ -482,7 +482,8 @@ mod interface_tests {
         println!("Running push_oci_manifest()");
         let manifest_digest = push_oci_manifest(&client, "puttest", "puttest1").await;
         println!("Running push_manifest_list()");
-        let digest_manifest_list = push_manifest_list(&client, &manifest_digest, "listtest", "listtest1").await;
+        let digest_manifest_list =
+            push_manifest_list(&client, &manifest_digest, "listtest", "listtest1").await;
         println!("Running get_manifest(puttest:puttest1)");
         get_manifest(&client, "puttest", "puttest1", Some(354)).await;
         println!("Running get_manifest(puttest:digest)");
