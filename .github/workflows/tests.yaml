@@ -14,6 +14,7 @@ jobs:
     env:
       SCCACHE_GHA_ENABLED: "true"
       RUSTC_WRAPPER: "sccache"
+      BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
     steps:
       - uses: actions/checkout@v3
       - uses: rui314/setup-mold@v1
@@ -43,9 +44,60 @@ jobs:
           OCI_HIDE_SKIPPED_WORKFLOWS: 0
           OCI_DEBUG: 0
         run: |
-          cargo build
           ./target/debug/trow &
           docker run \
             --add-host trow:host-gateway \
             --env-file <(env | grep OCI_) \
             ghcr.io/opencontainers/distribution-spec/conformance:v1.0.0@sha256:6302582c3b35169f7846282ad5b81471cd8814f30f7a958030e04fd82b19e17f
+      - name: Build and push container image
+        uses: docker/build-push-action@v4
+        with:
+          push: true
+          tags: ghcr.io/extrality/trow:ci_${{ env.BRANCH_NAME }}
+          context: .
+          file: ./docker/Dockerfile.debug
+
+
+  delete-old-images:
+    runs-on: ubuntu-latest
+    needs: run-tests
+    steps:
+      - uses: smartsquaregmbh/delete-old-packages@v0.7.0
+        with:
+          organization: my-organization
+          type: Docker
+          names: trow
+          version-pattern: "^ci_.*"
+
+
+  helm-chart-validation:
+    runs-on: ubuntu-latest
+    needs: debug-build
+    env:
+      IMAGE_TAG: ci_${{ github.head_ref || github.ref_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.7.0
+        with:
+          config: .github/workflows/config/kind.yaml
+      - name: Install Ingress
+        run: |
+          .github/workflows/config/install-kind-ingress.sh
+          kubectl delete -A ValidatingWebhookConfiguration ingress-nginx-admission
+      - name: Template values.yaml
+        run: sed -i "s|%TROW_IMAGE_TAG%|${{ env.IMAGE_TAG }}|" .github/workflows/config/values.yaml
+      - name: Helm Install Trow
+        run: |
+          helm install trow-test -f .github/workflows/config/values.yaml charts/trow/
+      - name: Pull and Tag Docker Image
+        run: |
+          docker pull nginx:alpine
+          docker tag nginx:alpine 127.0.0.1/test/nginx:alpine
+      - name: Push to Trow
+        run: |
+          kubectl wait pod/trow-test-0 --for condition=ready --timeout=300s
+          docker push 127.0.0.1/test/nginx:alpine
