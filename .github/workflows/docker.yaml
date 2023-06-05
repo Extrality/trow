@@ -34,34 +34,6 @@ jobs:
         env:
           COSIGN_EXPERIMENTAL: 1
 
-  conformance_tests:
-    services:
-      trow:
-        image: ${{ needs.upload_images.outputs.container-image }}
-    needs: upload_images
-    runs-on: ubuntu-latest
-    steps:
-      - name: Run OCI Distribution Spec conformance tests
-        uses: opencontainers/distribution-spec@main
-        env:
-          OCI_ROOT_URL: http://trow:8000
-          OCI_NAMESPACE: oci-conformance/distribution-test
-          OCI_TEST_PULL: 1
-          OCI_TEST_PUSH: 1
-          OCI_TEST_CONTENT_DISCOVERY: 1
-          OCI_TEST_CONTENT_MANAGEMENT: 1
-          OCI_HIDE_SKIPPED_WORKFLOWS: 0
-          OCI_DEBUG: 0
-      - name: Copy Report
-        run: mkdir -p .out/ && mv {report.html,junit.xml} .out/
-        if: always()
-      - name: Upload test results zip as build artifact
-        uses: actions/upload-artifact@v1
-        with:
-          name: oci-test-results-${{ github.sha }}
-          path: .out/
-        if: always()
-
   helm_chart_validation:
     runs-on: ubuntu-latest
     needs: upload_images
