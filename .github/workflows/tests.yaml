@@ -25,11 +25,11 @@ jobs:
       - name: Build
         run: cargo build
       - name: Run trow-server test suite
-        run: cargo test -p trow-server --verbose
+        run: cargo test -p trow-server
       - name: Run Trow test suite
-        run: cargo test -p trow --verbose
+        run: cargo test -p trow
       - name: Smoke test
-        run: cargo test --verbose -- --ignored
+        run: cargo test -- --ignored
       - name: Run OCI Distribution Spec conformance tests
         env:
           OCI_ROOT_URL: http://trow:8000
@@ -43,7 +43,7 @@ jobs:
         run: |
           cargo build
           ./target/debug/trow &
-          echo "127.0.0.1 trow" | sudo tee -a /etc/hosts
           docker run \
+            --add-host trow:host-gateway \
             --env-file <(env | grep OCI_) \
             ghcr.io/opencontainers/distribution-spec/conformance:v1.0.0@sha256:6302582c3b35169f7846282ad5b81471cd8814f30f7a958030e04fd82b19e17f
