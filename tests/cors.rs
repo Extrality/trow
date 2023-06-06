@@ -3,17 +3,15 @@ mod common;
 
 #[cfg(test)]
 mod cors_tests {
-    use std::fs;
-    use std::process::Child;
-    use std::process::Command;
-    use std::thread;
+    use std::process::{Child, Command};
     use std::time::Duration;
+    use std::{fs, thread};
 
-    use base64::{engine::general_purpose as base64_engine, Engine as _};
+    use base64::engine::general_purpose as base64_engine;
+    use base64::Engine as _;
     use environment::Environment;
-    use reqwest::header;
     use reqwest::header::HeaderMap;
-    use reqwest::StatusCode;
+    use reqwest::{header, StatusCode};
 
     use crate::common;
 

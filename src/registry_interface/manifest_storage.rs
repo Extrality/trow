@@ -1,7 +1,8 @@
-use super::{AsyncSeekRead, StorageDriverError};
-use super::{Digest, DigestAlgorithm};
-use rocket::data::DataStream;
 use std::pin::Pin;
+
+use axum::extract::BodyStream;
+
+use super::{AsyncSeekRead, Digest, DigestAlgorithm, StorageDriverError};
 
 pub struct ManifestReader {
     pub content_type: String,
@@ -24,7 +25,7 @@ impl ManifestReader {
 }
 
 // This trait handles all the necessary Manifest Operations (get, save delete)
-#[rocket::async_trait]
+#[axum::async_trait]
 pub trait ManifestStorage {
     /// Fetch the manifest identified by name and reference where reference can be a tag or digest.
     /// A HEAD request can also be issued to this endpoint to obtain resource information without receiving all data.
@@ -50,7 +51,7 @@ pub trait ManifestStorage {
         &self,
         name: &str,
         tag: &str,
-        data: DataStream<'a>,
+        data: BodyStream,
     ) -> Result<Digest, StorageDriverError>;
 
     // Store a manifest via Writer trait for drivers which support it

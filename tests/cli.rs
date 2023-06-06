@@ -4,10 +4,9 @@ mod common;
 #[cfg(test)]
 mod cli {
     use predicates::prelude::*;
+    use trow_server::{ImageValidationConfig, RegistryProxyConfig};
 
     use crate::common::get_file;
-    use trow_server::ImageValidationConfig;
-    use trow_server::RegistryProxyConfig;
 
     fn get_command() -> assert_cmd::Command {
         let mut cmd = assert_cmd::Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();

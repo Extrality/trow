@@ -4,8 +4,7 @@ mod common;
 #[cfg(test)]
 mod validation_tests {
     use std::collections::HashMap;
-    use std::process::Child;
-    use std::process::Command;
+    use std::process::{Child, Command};
     use std::thread;
     use std::time::Duration;
 
@@ -13,9 +12,9 @@ mod validation_tests {
     use k8s_openapi::api::core::v1::Pod;
     use kube::core::admission::AdmissionReview;
     use reqwest::StatusCode;
+    use trow_server::ImageValidationConfig;
 
     use crate::common;
-    use trow_server::ImageValidationConfig;
 
     const PORT: &str = "39366";
     const HOST: &str = "127.0.0.1:39366";

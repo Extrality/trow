@@ -1,12 +1,12 @@
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
+use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
 
 use clap::builder::ArgPredicate;
 use clap::Parser;
-
-use trow::{NetAddr, TrowBuilder};
+use trow::TrowBuilder;
 
 #[derive(Parser, Debug)]
 #[command(name = "Trow")]
@@ -15,7 +15,7 @@ use trow::{NetAddr, TrowBuilder};
 struct Args {
     /// Name of the host or interface to start Trow on
     #[arg(long, default_value = "0.0.0.0")]
-    host: String,
+    host: IpAddr,
 
     /// Port that trow will listen on
     #[arg(
@@ -94,15 +94,13 @@ struct Args {
     log_level: String,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let args = Args::parse();
 
-    let host_name = args.name.unwrap_or(args.host.clone());
+    let addr = SocketAddr::new(args.host, args.port);
+    let host_name = args.name.unwrap_or(addr.to_string());
 
-    let addr = NetAddr {
-        host: args.host.clone(),
-        port: args.port,
-    };
     let mut builder = TrowBuilder::new(
         args.data_dir.clone(),
         addr,
@@ -154,7 +152,7 @@ fn main() {
         }
     }
 
-    builder.start().unwrap_or_else(|e| {
+    builder.start().await.unwrap_or_else(|e| {
         eprintln!("Error launching Trow:\n\n{}", e);
         std::process::exit(1);
     });

@@ -4,8 +4,7 @@ mod common;
 #[cfg(test)]
 mod admission_mutation_tests {
     use std::collections::HashMap;
-    use std::process::Child;
-    use std::process::Command;
+    use std::process::{Child, Command};
     use std::thread;
     use std::time::Duration;
 
@@ -14,9 +13,9 @@ mod admission_mutation_tests {
     use k8s_openapi::api::core::v1::Pod;
     use kube::core::admission::AdmissionReview;
     use reqwest::StatusCode;
+    use trow_server::RegistryProxyConfig;
 
     use crate::common;
-    use trow_server::RegistryProxyConfig;
 
     const PORT: &str = "39365";
     const HOST: &str = "127.0.0.1:39365";

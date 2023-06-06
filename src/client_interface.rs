@@ -2,37 +2,36 @@ pub mod trow_proto {
     include!("../trow-protobuf/out/trow.rs");
 }
 
-use crate::registry_interface::blob_storage::Stored;
-use crate::registry_interface::digest::{self, Digest, DigestAlgorithm};
-use crate::registry_interface::{
-    AdmissionValidation, BlobReader, CatalogOperations, ContentInfo, ManifestHistory,
-    ManifestReader, Metrics, MetricsError, MetricsResponse,
-};
-use anyhow::anyhow;
-use anyhow::Result;
+use std::convert::TryInto;
+use std::io::SeekFrom;
+
+use anyhow::{anyhow, Result};
+use axum::extract::BodyStream;
+use chrono::TimeZone;
+use futures::StreamExt;
 use k8s_openapi::api::core::v1::Pod;
 use kube::core::admission::{AdmissionRequest, AdmissionResponse};
 use log::{debug, info, warn};
-use rocket::data::DataStream;
-use rocket::tokio::io::{AsyncSeek, AsyncSeekExt, AsyncWrite};
 use thiserror::Error;
+use tokio::io::{AsyncSeek, AsyncSeekExt, AsyncWrite, AsyncWriteExt};
 use tonic::{Code, Request};
+use trow_proto::admission_controller_client::AdmissionControllerClient;
+use trow_proto::registry_client::RegistryClient;
 use trow_proto::{
-    admission_controller_client::AdmissionControllerClient, registry_client::RegistryClient,
     BlobRef, CatalogRequest, CompleteRequest, HealthRequest, ListTagsRequest,
     ManifestHistoryRequest, ManifestRef, MetricsRequest, ReadinessRequest, UploadRef,
     UploadRequest, VerifyManifestRequest,
 };
 
-use crate::registry_interface::{BlobStorage, ManifestStorage, StorageDriverError};
+use crate::registry_interface::blob_storage::Stored;
+use crate::registry_interface::digest::{self, Digest, DigestAlgorithm};
+use crate::registry_interface::{
+    AdmissionValidation, BlobReader, BlobStorage, CatalogOperations, ContentInfo, ManifestHistory,
+    ManifestReader, ManifestStorage, Metrics, MetricsError, MetricsResponse, StorageDriverError,
+};
 use crate::types::{self, *};
-use chrono::TimeZone;
-use std::convert::TryInto;
-use std::io::SeekFrom;
 
-// BIG TODO:
-// Creating a new runtime for each request is awful.
-// Best fix is to move to Rocket 0.5 or another framework
+#[derive(Debug)]
 pub struct ClientInterface {
     server: String,
 }
@@ -73,7 +72,7 @@ pub enum RegistryError {
     Internal,
 }
 
-#[rocket::async_trait]
+#[axum::async_trait]
 impl ManifestStorage for ClientInterface {
     async fn get_manifest(
         &self,
@@ -93,7 +92,7 @@ impl ManifestStorage for ClientInterface {
         &self,
         name: &str,
         tag: &str,
-        data: DataStream<'a>,
+        data: BodyStream,
     ) -> Result<Digest, StorageDriverError> {
         let repo = RepoName(name.to_string());
 
@@ -130,7 +129,7 @@ impl ManifestStorage for ClientInterface {
     }
 }
 
-#[rocket::async_trait]
+#[axum::async_trait]
 impl BlobStorage for ClientInterface {
     async fn get_blob(
         &self,
@@ -151,7 +150,7 @@ impl BlobStorage for ClientInterface {
         name: &str,
         session_id: &str,
         data_info: Option<ContentInfo>,
-        data: DataStream<'a>,
+        mut data: BodyStream,
     ) -> Result<Stored, StorageDriverError> {
         let rn = RepoName(name.to_string());
         let uuid = Uuid(session_id.to_string());
@@ -178,31 +177,43 @@ impl BlobStorage for ClientInterface {
             return Err(StorageDriverError::InvalidContentRange);
         }
 
-        let stream_res = data.stream_to(&mut sink).await.map_err(|e| {
-            warn!("Error writing blob {:?}", e);
-            StorageDriverError::Internal
-        })?;
+        let mut chunk_size = 0;
+        while let Some(v) = data.next().await {
+            match v {
+                Ok(v) => {
+                    chunk_size += v.len() as u64;
+                    if let Err(e) = sink.write_all(&v).await {
+                        warn!("Error writing out manifest {:?}", e);
+                        return Err(StorageDriverError::Internal);
+                    }
+                }
+                Err(e) => {
+                    warn!(
+                        "Error reading manifest (clipped by transfer limits ?) {:?}",
+                        e
+                    );
+                    // return Err(RegistryError::ManifestClipped);
+                    return Err(StorageDriverError::Internal);
+                }
+            }
+        }
 
-        let chunk_len = stream_res.written;
-        let complete = stream_res.complete;
-
-        let total = sink.seek(SeekFrom::End(0)).await.unwrap_or(chunk_len);
+        let total = sink.seek(SeekFrom::End(0)).await.unwrap();
         if have_range {
             if (info.range.1 + 1) != total {
                 warn!("total {} r + 1 {}", total, info.range.1 + 1);
                 return Err(StorageDriverError::InvalidContentRange);
             }
             //Check length if chunked upload
-            if info.length != chunk_len {
-                warn!("info.length {} len {}", info.length, chunk_len);
+            if info.length != chunk_size {
+                warn!("info.length {} len {}", info.length, chunk_size);
                 return Err(StorageDriverError::InvalidContentRange);
             }
         }
 
         Ok(Stored {
             total_stored: total,
-            chunk: chunk_len,
-            complete,
+            chunk: chunk_size,
         })
     }
 
@@ -267,7 +278,7 @@ impl BlobStorage for ClientInterface {
     }
 }
 
-#[rocket::async_trait]
+#[axum::async_trait]
 impl CatalogOperations for ClientInterface {
     async fn get_catalog(
         &self,
@@ -314,7 +325,7 @@ impl CatalogOperations for ClientInterface {
     }
 }
 
-#[rocket::async_trait]
+#[axum::async_trait]
 impl AdmissionValidation for ClientInterface {
     async fn validate_admission(
         &self,
@@ -341,7 +352,7 @@ impl AdmissionValidation for ClientInterface {
     }
 }
 
-#[rocket::async_trait]
+#[axum::async_trait]
 impl Metrics for ClientInterface {
     async fn is_healthy(&self) -> bool {
         self.is_healthy().await.is_healthy
@@ -439,7 +450,7 @@ impl ClientInterface {
             .into_inner();
 
         //For the moment we know it's a file location
-        let file = rocket::tokio::fs::OpenOptions::new()
+        let file = tokio::fs::OpenOptions::new()
             .create(true)
             .append(true)
             .open(resp.path)
@@ -451,7 +462,7 @@ impl ClientInterface {
         &self,
         repo_name: &RepoName,
         reference: &str,
-        manifest: DataStream<'_>,
+        mut manifest: BodyStream,
     ) -> Result<types::VerifiedManifest, RegistryError> {
         let (mut sink_loc, uuid) = self
             .get_write_sink_for_manifest(repo_name, reference)
@@ -468,18 +479,23 @@ impl ClientInterface {
                 }
             })?;
 
-        let stream_res = manifest.stream_to(&mut sink_loc).await.map_err(|e| {
-            warn!("Error writing out manifest {:?}", e);
-            RegistryError::Internal
-        })?;
-
-        //It's not going to verify if it's clipped
-        if !stream_res.complete {
-            warn!(
-                "Manifest {}:{} clipped by transfer limits",
-                repo_name, reference
-            );
-            return Err(RegistryError::ManifestClipped);
+        while let Some(v) = manifest.next().await {
+            match v {
+                Ok(v) => {
+                    if let Err(e) = sink_loc.write_all(&v).await {
+                        warn!("Error writing out manifest {:?}", e);
+                        return Err(RegistryError::Internal);
+                    }
+                }
+                Err(e) => {
+                    warn!(
+                        "Error reading manifest (clipped by transfer limits ?) {:?}",
+                        e
+                    );
+                    // return Err(RegistryError::ManifestClipped);
+                    return Err(RegistryError::Internal);
+                }
+            }
         }
 
         self.verify_manifest(repo_name, reference, &uuid)
@@ -520,7 +536,7 @@ impl ClientInterface {
 
         //For the moment we know it's a file location
         //Manifests don't append; just overwrite
-        let file = rocket::tokio::fs::OpenOptions::new()
+        let file = tokio::fs::OpenOptions::new()
             .create(true)
             .write(true)
             .open(resp.path)
@@ -549,7 +565,7 @@ impl ClientInterface {
             .into_inner();
 
         //For the moment we know it's a file location
-        let file = rocket::tokio::fs::File::open(resp.path).await?;
+        let file = tokio::fs::File::open(resp.path).await?;
         let digest = digest::parse(&resp.digest)?;
         let mr = ManifestReader {
             reader: Box::pin(file),
@@ -619,7 +635,7 @@ impl ClientInterface {
             .into_inner();
 
         //For the moment we know it's a file location
-        let file = rocket::tokio::fs::File::open(resp.path).await?;
+        let file = tokio::fs::File::open(resp.path).await?;
         let reader = BlobReader {
             reader: Box::pin(file),
             digest: digest.clone(),
@@ -672,7 +688,7 @@ impl ClientInterface {
             .into_inner();
 
         let digest = digest::parse(&resp.digest)?;
-        let vm = create_verified_manifest(repo_name.clone(), digest, reference.to_string());
+        let vm = VerifiedManifest::new(None, repo_name.clone(), digest, reference.to_string());
         Ok(vm)
     }
 

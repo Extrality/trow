@@ -7,17 +7,16 @@ mod proxy_auth;
 mod server;
 mod temporary_file;
 
-use log::{debug, warn};
 use std::future::Future;
-use tokio::runtime::Runtime;
-use tonic::transport::Server;
 
+pub use admission::ImageValidationConfig;
+use log::{debug, warn};
+pub use proxy_auth::RegistryProxyConfig;
 use server::trow_server::admission_controller_server::AdmissionControllerServer;
 use server::trow_server::registry_server::RegistryServer;
 use server::TrowServer;
-
-pub use admission::ImageValidationConfig;
-pub use proxy_auth::RegistryProxyConfig;
+use tokio::runtime::Runtime;
+use tonic::transport::Server;
 
 pub struct TrowServerBuilder {
     data_path: String,

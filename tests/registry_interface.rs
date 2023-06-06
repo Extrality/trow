@@ -4,21 +4,18 @@ mod common;
 #[cfg(test)]
 mod interface_tests {
 
+    use std::io::BufReader;
+    use std::process::{Child, Command};
+    use std::time::Duration;
+    use std::{fs, thread};
+
     use environment::Environment;
+    use reqwest::StatusCode;
+    use trow::types::{HealthResponse, ReadinessResponse, RepoCatalog, TagList};
+    use trow_server::{digest, manifest};
 
     use crate::common;
     use crate::common::DIST_API_HEADER;
-
-    use reqwest::StatusCode;
-
-    use std::fs;
-    use std::io::BufReader;
-    use std::process::Child;
-    use std::process::Command;
-    use std::thread;
-    use std::time::Duration;
-    use trow::types::{HealthResponse, ReadinessResponse, RepoCatalog, TagList};
-    use trow_server::{digest, manifest};
 
     const PORT: &str = "39365";
     const HOST: &str = "127.0.0.1:39365";

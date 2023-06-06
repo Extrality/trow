@@ -4,16 +4,16 @@ mod common;
 #[cfg(test)]
 mod authentication_tests {
 
-    use crate::common;
-    use environment::Environment;
-
-    use base64::{engine::general_purpose as base64_engine, Engine as _};
-    use reqwest::StatusCode;
-    use std::fs;
-    use std::process::Child;
-    use std::process::Command;
-    use std::thread;
+    use std::process::{Child, Command};
     use std::time::Duration;
+    use std::{fs, thread};
+
+    use base64::engine::general_purpose as base64_engine;
+    use base64::Engine as _;
+    use environment::Environment;
+    use reqwest::StatusCode;
+
+    use crate::common;
 
     const PORT: &str = "39367";
     const HOST: &str = "127.0.0.1:39367";

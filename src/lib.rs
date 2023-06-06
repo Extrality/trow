@@ -1,5 +1,4 @@
 mod client_interface;
-mod fairings;
 
 pub mod response;
 #[allow(clippy::too_many_arguments)]
@@ -10,32 +9,29 @@ mod registry_interface;
 #[cfg(feature = "sqlite")]
 mod users;
 
-use anyhow::Context;
-use futures::Future;
-use log::{LevelFilter, SetLoggerError};
 use std::io::Write;
-
-use anyhow::{anyhow, Result};
-use base64::{engine::general_purpose as base64_engine, Engine as _};
-use chrono::Utc;
-use log::debug;
-use rand::rngs::OsRng;
-use rand::RngCore;
-use rocket::fairing;
-use rocket::http::Method;
-use rocket_cors::AllowedHeaders;
-use rocket_cors::AllowedOrigins;
-use std::env;
-use std::fs;
+use std::net::SocketAddr;
 use std::path::Path;
 use std::str::FromStr;
-use thiserror::Error;
-use uuid::Uuid;
+use std::sync::Arc;
+use std::{env, fs};
 
+use anyhow::{anyhow, Context, Result};
+use axum::extract::FromRef;
+use axum::http::header;
+use axum::http::method::Method;
+use axum::response::Response;
+use axum_server::tls_rustls::RustlsConfig;
+use chrono::Utc;
 use client_interface::ClientInterface;
-use fairings::conditional_fairing::AttachConditionalFairing;
-
+use futures::Future;
+use hyper::http::HeaderValue;
+use log::{debug, LevelFilter, SetLoggerError};
+use thiserror::Error;
+use tower::ServiceBuilder;
+use tower_http::cors;
 use trow_server::{ImageValidationConfig, RegistryProxyConfig};
+use uuid::Uuid;
 
 //TODO: Make this take a cause or description
 #[derive(Error, Debug)]
@@ -48,6 +44,18 @@ pub struct NetAddr {
     pub port: u16,
 }
 
+#[derive(Debug)]
+pub struct TrowServerState {
+    pub client: ClientInterface,
+    pub config: TrowConfig,
+}
+
+impl FromRef<Arc<TrowServerState>> for TrowConfig {
+    fn from_ref(state: &Arc<TrowServerState>) -> Self {
+        state.config.clone()
+    }
+}
+
 /*
  * Configuration for Trow. This isn't direct fields on the builder so that we can pass it
  * to Rocket to manage.
@@ -55,7 +63,7 @@ pub struct NetAddr {
 #[derive(Clone, Debug)]
 pub struct TrowConfig {
     data_dir: String,
-    addr: NetAddr,
+    addr: SocketAddr,
     tls: Option<TlsConfig>,
     grpc: GrpcConfig,
     service_name: String,
@@ -141,7 +149,7 @@ impl TrowBuilder {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         data_dir: String,
-        addr: NetAddr,
+        addr: SocketAddr,
         listen: String,
         service_name: String,
         dry_run: bool,
@@ -208,47 +216,13 @@ impl TrowBuilder {
         self
     }
 
-    fn build_rocket_config(&self) -> Result<rocket::config::Config> {
-        // When run in production, Rocket wants a secret key for private cookies.
-        // As we don't use private cookies, we just generate it here.
-        let mut key = [0u8; 32];
-        OsRng.fill_bytes(&mut key);
-        let secret_key = base64_engine::STANDARD_NO_PAD.encode(key);
-
-        //TODO: with Rocket 0.5 should be able to pass our config file and let Rocket pick out the parts it wants
-        //This will be simpler and allow more flexibility.
-        let mut figment = rocket::Config::figment()
-            .merge(("address", self.config.addr.host.clone()))
-            .merge(("port", self.config.addr.port))
-            .merge(("workers", 256))
-            .merge(("secret_key", secret_key));
-
-        if let Some(ref tls) = self.config.tls {
-            if !(Path::new(&tls.cert_file).is_file() && Path::new(&tls.key_file).is_file()) {
-                return Err(anyhow!(
-                    "Could not find TLS certificate and key at {} and {}",
-                    tls.cert_file,
-                    tls.key_file
-                ));
-            }
-
-            let tls_config =
-                rocket::config::TlsConfig::from_paths(tls.cert_file.clone(), tls.key_file.clone());
-            figment = figment.merge(("tls", tls_config));
-        }
-        let cfg = rocket::Config::from(figment);
-        Ok(cfg)
-    }
-
-    pub fn start(&self) -> Result<()> {
+    pub async fn start(&self) -> Result<()> {
         init_logger(self.config.log_level.clone())?;
 
-        let rocket_config = &self.build_rocket_config()?;
         println!(
-            "Starting Trow {} on {}:{}",
+            "Starting Trow {} on {}",
             env!("CARGO_PKG_VERSION"),
-            self.config.addr.host,
-            self.config.addr.port
+            self.config.addr
         );
         println!(
             "\nMaximum blob size: {} Mebibytes",
@@ -289,44 +263,37 @@ impl TrowBuilder {
             println!("Dry run, exiting.");
             std::process::exit(0);
         }
+
         let s = format!("https://{}", self.config.grpc.listen);
-        let ci: ClientInterface = build_handlers(s)?;
+        let server_state = TrowServerState {
+            config: self.config.clone(),
+            client: build_handlers(s)?,
+        };
 
-        let cors = rocket_cors::CorsOptions {
-            allowed_origins: AllowedOrigins::all(),
-            allowed_methods: vec![Method::Get, Method::Post, Method::Options]
-                .into_iter()
-                .map(From::from)
-                .collect(),
-            allowed_headers: AllowedHeaders::some(&["Authorization", "Content-Type"]),
-            allow_credentials: true,
-            ..Default::default()
+        let mut app = routes::create_app(server_state);
+
+        if self.config.cors {
+            app = app.layer(
+                cors::CorsLayer::new()
+                    .allow_credentials(true)
+                    .allow_headers([header::AUTHORIZATION, header::CONTENT_TYPE])
+                    .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+                    .allow_origin(cors::AllowOrigin::any()),
+            );
         }
-        .to_cors()?;
 
-        let f = rocket::custom(rocket_config.clone())
-            .manage(self.config.clone())
-            .manage(ci)
-            .attach(fairing::AdHoc::on_response(
-                "Set API Version Header",
-                |_, resp| {
-                    Box::pin(async move {
-                        //Only serve v2. If we also decide to support older clients, this will to be dropped on some paths
-                        resp.set_raw_header("Docker-Distribution-API-Version", "registry/2.0");
-                    })
-                },
-            ))
-            .attach(fairing::AdHoc::on_liftoff("Launch Message", |_| {
-                Box::pin(async move {
-                    println!("Trow is up and running!");
-                })
-            }))
-            .attach_if(self.config.cors, cors)
-            .mount("/", routes::routes())
-            .register("/", routes::catchers())
-            .launch();
+        let app = app.layer(
+            // Set API Version Header
+            ServiceBuilder::new().map_response(|mut r: Response| {
+                r.headers_mut().insert(
+                    "Docker-Distribution-API-Version",
+                    HeaderValue::from_static("registry/2.0"),
+                );
+                r
+            }),
+        );
 
-        let rt = rocket::tokio::runtime::Builder::new_multi_thread()
+        let rt = tokio::runtime::Builder::new_multi_thread()
             // NOTE: graceful shutdown depends on the "rocket-worker" prefix.
             .thread_name("rocket-worker-thread")
             .enable_all()
@@ -334,8 +301,28 @@ impl TrowBuilder {
 
         // Start GRPC Backend thread.
         rt.spawn(init_trow_server(self.config.clone())?);
-        //And now rocket
-        _ = rt.block_on(f)?;
+
+        if let Some(ref tls) = self.config.tls {
+            if !(Path::new(&tls.cert_file).is_file() && Path::new(&tls.key_file).is_file()) {
+                return Err(anyhow!(
+                    "Could not find TLS certificate and key at {} and {}",
+                    tls.cert_file,
+                    tls.key_file
+                ));
+            }
+
+            let config = RustlsConfig::from_pem_file(&tls.cert_file, &tls.key_file)
+                .await
+                .unwrap();
+
+            axum_server::bind_rustls(self.config.addr, config)
+                .serve(app.into_make_service())
+                .await?;
+        } else {
+            axum_server::bind(self.config.addr)
+                .serve(app.into_make_service())
+                .await?;
+        };
 
         Ok(())
     }
