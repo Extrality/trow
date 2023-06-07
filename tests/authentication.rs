@@ -8,6 +8,7 @@ mod authentication_tests {
     use std::time::Duration;
     use std::{fs, thread};
 
+    use axum::http::header;
     use base64::engine::general_purpose as base64_engine;
     use base64::Engine as _;
     use environment::Environment;
@@ -18,9 +19,6 @@ mod authentication_tests {
     const PORT: &str = "39367";
     const HOST: &str = "127.0.0.1:39367";
     const TROW_ADDRESS: &str = "http://127.0.0.1:39367";
-
-    const AUTHN_HEADER: &str = "www-authenticate";
-    const AUTHZ_HEADER: &str = "Authorization";
 
     struct TrowInstance {
         pid: Child,
@@ -79,7 +77,7 @@ mod authentication_tests {
         assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
         //Test get redir header
         assert_eq!(
-            resp.headers().get(AUTHN_HEADER).unwrap(),
+            resp.headers().get(header::WWW_AUTHENTICATE).unwrap(),
             &format!(
                 "Bearer realm=\"{}/login\",service=\"trow_registry\",scope=\"push/pull\"",
                 TROW_ADDRESS
@@ -91,7 +89,7 @@ mod authentication_tests {
         let bytes = base64_engine::STANDARD.encode(b"authtest:authpass");
         let resp = cl
             .get(&(TROW_ADDRESS.to_owned() + "/login"))
-            .header(AUTHZ_HEADER, format!("Basic {}", bytes))
+            .header(header::AUTHORIZATION, format!("Basic {}", bytes))
             .send()
             .await
             .unwrap();
@@ -112,7 +110,7 @@ mod authentication_tests {
     async fn test_login_fail(cl: &reqwest::Client) {
         let resp = cl
             .get(&(TROW_ADDRESS.to_owned() + "/login"))
-            .header(AUTHZ_HEADER, "Basic thisstringwillfail")
+            .header(header::AUTHORIZATION, "Basic thisstringwillfail")
             .send()
             .await
             .unwrap();

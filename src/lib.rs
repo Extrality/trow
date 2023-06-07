@@ -18,18 +18,12 @@ use std::{env, fs};
 
 use anyhow::{anyhow, Context, Result};
 use axum::extract::FromRef;
-use axum::http::header;
-use axum::http::method::Method;
-use axum::response::Response;
 use axum_server::tls_rustls::RustlsConfig;
 use chrono::Utc;
 use client_interface::ClientInterface;
 use futures::Future;
-use hyper::http::HeaderValue;
 use log::{debug, LevelFilter, SetLoggerError};
 use thiserror::Error;
-use tower::ServiceBuilder;
-use tower_http::cors;
 use trow_server::{ImageValidationConfig, RegistryProxyConfig};
 use uuid::Uuid;
 
@@ -70,11 +64,9 @@ pub struct TrowConfig {
     proxy_registry_config: Vec<RegistryProxyConfig>,
     image_validation_config: Option<ImageValidationConfig>,
     dry_run: bool,
-    max_manifest_size: u32,
-    max_blob_size: u32,
     token_secret: String,
     user: Option<UserConfig>,
-    cors: bool,
+    cors: Option<Vec<String>>,
     log_level: String,
 }
 
@@ -153,9 +145,7 @@ impl TrowBuilder {
         listen: String,
         service_name: String,
         dry_run: bool,
-        cors: bool,
-        max_manifest_size: u32,
-        max_blob_size: u32,
+        cors: Option<Vec<String>>,
         log_level: String,
     ) -> TrowBuilder {
         let config = TrowConfig {
@@ -167,8 +157,6 @@ impl TrowBuilder {
             proxy_registry_config: Vec::new(),
             image_validation_config: None,
             dry_run,
-            max_manifest_size,
-            max_blob_size,
             token_secret: Uuid::new_v4().to_string(),
             user: None,
             cors,
@@ -224,14 +212,6 @@ impl TrowBuilder {
             env!("CARGO_PKG_VERSION"),
             self.config.addr
         );
-        println!(
-            "\nMaximum blob size: {} Mebibytes",
-            self.config.max_blob_size
-        );
-        println!(
-            "Maximum manifest size: {} Mebibytes",
-            self.config.max_manifest_size
-        );
 
         println!(
             "Hostname of this registry (for the MutatingWebhook): {:?}",
@@ -255,7 +235,7 @@ impl TrowBuilder {
             println!("Proxy registries not configured");
         }
 
-        if self.config.cors {
+        if self.config.cors.is_some() {
             println!("Cross-Origin Resource Sharing(CORS) requests are allowed\n");
         }
 
@@ -270,37 +250,10 @@ impl TrowBuilder {
             client: build_handlers(s)?,
         };
 
-        let mut app = routes::create_app(server_state);
+        let app = routes::create_app(server_state);
 
-        if self.config.cors {
-            app = app.layer(
-                cors::CorsLayer::new()
-                    .allow_credentials(true)
-                    .allow_headers([header::AUTHORIZATION, header::CONTENT_TYPE])
-                    .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
-                    .allow_origin(cors::AllowOrigin::any()),
-            );
-        }
-
-        let app = app.layer(
-            // Set API Version Header
-            ServiceBuilder::new().map_response(|mut r: Response| {
-                r.headers_mut().insert(
-                    "Docker-Distribution-API-Version",
-                    HeaderValue::from_static("registry/2.0"),
-                );
-                r
-            }),
-        );
-
-        let rt = tokio::runtime::Builder::new_multi_thread()
-            // NOTE: graceful shutdown depends on the "rocket-worker" prefix.
-            .thread_name("rocket-worker-thread")
-            .enable_all()
-            .build()?;
-
-        // Start GRPC Backend thread.
-        rt.spawn(init_trow_server(self.config.clone())?);
+        // Start GRPC Backend task
+        tokio::task::spawn(init_trow_server(self.config.clone())?);
 
         if let Some(ref tls) = self.config.tls {
             if !(Path::new(&tls.cert_file).is_file() && Path::new(&tls.key_file).is_file()) {
@@ -310,11 +263,7 @@ impl TrowBuilder {
                     tls.key_file
                 ));
             }
-
-            let config = RustlsConfig::from_pem_file(&tls.cert_file, &tls.key_file)
-                .await
-                .unwrap();
-
+            let config = RustlsConfig::from_pem_file(&tls.cert_file, &tls.key_file).await?;
             axum_server::bind_rustls(self.config.addr, config)
                 .serve(app.into_make_service())
                 .await?;
@@ -323,7 +272,6 @@ impl TrowBuilder {
                 .serve(app.into_make_service())
                 .await?;
         };
-
         Ok(())
     }
 }

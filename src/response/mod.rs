@@ -29,7 +29,7 @@ pub mod verified_manifest;
 /// Falls back to hostname if it doesn't exist.
 ///
 /// Move this.
-pub fn get_base_url(headers: HeaderMap, config: &TrowConfig) -> String {
+pub fn get_base_url(headers: &HeaderMap, config: &TrowConfig) -> String {
     let host = headers
         .get("Host")
         .expect("No host header")

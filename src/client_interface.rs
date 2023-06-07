@@ -11,7 +11,7 @@ use chrono::TimeZone;
 use futures::StreamExt;
 use k8s_openapi::api::core::v1::Pod;
 use kube::core::admission::{AdmissionRequest, AdmissionResponse};
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
 use thiserror::Error;
 use tokio::io::{AsyncSeek, AsyncSeekExt, AsyncWrite, AsyncWriteExt};
 use tonic::{Code, Request};
@@ -66,9 +66,7 @@ pub enum RegistryError {
     InvalidName,
     #[error("Invalid manifest")]
     InvalidManifest,
-    #[error("Invalid Ranextract_imagesge")]
-    ManifestClipped,
-    #[error("Manifest over data limit")]
+    #[error("Internal registry error")]
     Internal,
 }
 
@@ -102,7 +100,6 @@ impl ManifestStorage for ClientInterface {
                 Err(StorageDriverError::InvalidName(format!("{}:{}", name, tag)))
             }
             Err(RegistryError::InvalidManifest) => Err(StorageDriverError::InvalidManifest),
-            Err(RegistryError::ManifestClipped) => Err(StorageDriverError::InvalidContentRange),
             Err(_) => Err(StorageDriverError::Internal),
         }
     }
@@ -183,16 +180,12 @@ impl BlobStorage for ClientInterface {
                 Ok(v) => {
                     chunk_size += v.len() as u64;
                     if let Err(e) = sink.write_all(&v).await {
-                        warn!("Error writing out manifest {:?}", e);
+                        error!("Error writing out manifest {:?}", e);
                         return Err(StorageDriverError::Internal);
                     }
                 }
                 Err(e) => {
-                    warn!(
-                        "Error reading manifest (clipped by transfer limits ?) {:?}",
-                        e
-                    );
-                    // return Err(RegistryError::ManifestClipped);
+                    error!("Error reading manifest {e}",);
                     return Err(StorageDriverError::Internal);
                 }
             }
@@ -481,20 +474,17 @@ impl ClientInterface {
 
         while let Some(v) = manifest.next().await {
             match v {
-                Ok(v) => {
-                    if let Err(e) = sink_loc.write_all(&v).await {
-                        warn!("Error writing out manifest {:?}", e);
-                        return Err(RegistryError::Internal);
-                    }
-                }
                 Err(e) => {
-                    warn!(
-                        "Error reading manifest (clipped by transfer limits ?) {:?}",
-                        e
-                    );
-                    // return Err(RegistryError::ManifestClipped);
+                    error!("Could not read manifest: {e}");
                     return Err(RegistryError::Internal);
                 }
+                Ok(bytes) => match sink_loc.write_all(&bytes).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        error!("Could not write manifest: {e}");
+                        return Err(RegistryError::Internal);
+                    }
+                },
             }
         }
 
@@ -567,11 +557,7 @@ impl ClientInterface {
         //For the moment we know it's a file location
         let file = tokio::fs::File::open(resp.path).await?;
         let digest = digest::parse(&resp.digest)?;
-        let mr = ManifestReader {
-            reader: Box::pin(file),
-            content_type: resp.content_type,
-            digest,
-        };
+        let mr = ManifestReader::new(resp.content_type, digest, file).await?;
         Ok(mr)
     }
 
@@ -636,10 +622,7 @@ impl ClientInterface {
 
         //For the moment we know it's a file location
         let file = tokio::fs::File::open(resp.path).await?;
-        let reader = BlobReader {
-            reader: Box::pin(file),
-            digest: digest.clone(),
-        };
+        let reader = BlobReader::new(digest.clone(), file).await;
         Ok(reader)
     }
 

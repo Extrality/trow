@@ -39,7 +39,8 @@ mod cors_tests {
             .arg(HOST)
             .arg("--port")
             .arg(PORT)
-            .arg("--enable-cors")
+            .arg("--cors")
+            .arg("http://extrality.ai:8973,https://example.com")
             .spawn()
             .expect("failed to start");
 
@@ -81,7 +82,7 @@ mod cors_tests {
             .send()
             .await
             .unwrap();
-        assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+        assert_eq!(resp.status(), StatusCode::OK);
         assert_eq!(
             resp.headers()
                 .get(header::ACCESS_CONTROL_ALLOW_ORIGIN)

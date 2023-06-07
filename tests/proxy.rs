@@ -98,7 +98,7 @@ mod interface_tests {
 
     async fn upload_to_nonwritable_repo(cl: &reqwest::Client, name: &str) {
         let resp = cl
-            .post(&format!("{}/v2/{}/blobs/uploads/", ORIGIN, name))
+            .post(&format!("{ORIGIN}/v2/{name}/blobs/uploads"))
             .send()
             .await
             .expect("Error uploading layer");

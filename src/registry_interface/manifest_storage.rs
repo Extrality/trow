@@ -1,17 +1,38 @@
-use std::pin::Pin;
-
 use axum::extract::BodyStream;
+use log::error;
+use tokio::fs::File;
 
 use super::{AsyncSeekRead, Digest, DigestAlgorithm, StorageDriverError};
 
 pub struct ManifestReader {
-    pub content_type: String,
-    pub digest: Digest,
-    pub reader: Pin<Box<dyn AsyncSeekRead>>,
+    content_type: String,
+    digest: Digest,
+    reader: File,
+    size: u64,
 }
 
 impl ManifestReader {
-    pub fn get_reader(self) -> Pin<Box<dyn AsyncSeekRead>> {
+    pub async fn new(
+        content_type: String,
+        digest: Digest,
+        reader: File,
+    ) -> Result<Self, StorageDriverError> {
+        let size = match reader.metadata().await {
+            Ok(meta) => meta.len(),
+            Err(e) => {
+                error!("Could not get manifest file size: {}", e);
+                return Err(StorageDriverError::Internal);
+            }
+        };
+        Ok(Self {
+            content_type,
+            digest,
+            reader,
+            size,
+        })
+    }
+
+    pub fn get_reader(self) -> impl AsyncSeekRead {
         self.reader
     }
 
@@ -21,6 +42,10 @@ impl ManifestReader {
 
     pub fn digest(&self) -> &Digest {
         &self.digest
+    }
+
+    pub fn size(&self) -> u64 {
+        self.size
     }
 }
 

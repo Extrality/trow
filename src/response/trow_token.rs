@@ -1,11 +1,12 @@
 use std::ops::Add;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use axum::body;
 use axum::extract::{FromRef, FromRequestParts};
+use axum::headers::HeaderMapExt;
 use axum::http::request::Parts;
 use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
+use axum::{body, headers};
 use base64::engine::general_purpose as base64_engine;
 use base64::Engine as _;
 use frank_jwt::{decode, encode, Algorithm, ValidationOptions};
@@ -14,6 +15,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use uuid::Uuid;
 
+use super::authenticate::Authenticate;
+use super::get_base_url;
 use crate::{TrowConfig, UserConfig};
 
 const TOKEN_DURATION: u64 = 3600;
@@ -168,8 +171,9 @@ impl IntoResponse for TrowToken {
         //TODO: would be better to use serde here
         let formatted_body = format!("{{\"token\": \"{}\"}}", self.token);
         Response::builder()
-            .status(StatusCode::OK)
             .header(header::CONTENT_TYPE, "application/json")
+            .header(header::CONTENT_LENGTH, formatted_body.len())
+            .status(StatusCode::OK)
             .body(body::Body::from(formatted_body))
             .unwrap()
             .into_response()
@@ -182,10 +186,12 @@ where
     TrowConfig: FromRef<S>,
     S: Send + Sync,
 {
-    type Rejection = (StatusCode, ());
+    type Rejection = Authenticate;
 
     async fn from_request_parts(req: &mut Parts, config: &S) -> Result<Self, Self::Rejection> {
         let config = &TrowConfig::from_ref(config);
+        let base_url = get_base_url(&req.headers, config);
+
         if config.user.is_none() {
             //Authentication is not configured
             //TODO: Figure out how to create this only once
@@ -195,28 +201,19 @@ where
             };
             return Ok(no_auth_token);
         }
-        let auth_val = match req.headers.get("Authorization").map(|v| v.to_str()) {
-            Some(Ok(a)) => a,
-            _ => return Err((StatusCode::UNAUTHORIZED, ())),
+        let authorization = match req
+            .headers
+            .typed_get::<headers::Authorization<headers::authorization::Bearer>>()
+        {
+            Some(bt) => bt,
+            None => return Err(Authenticate::new(base_url)),
         };
-
-        // Check header handling - isn't there a next?
-        // split the header on white space
-        let auth_strings: Vec<String> = auth_val.split_whitespace().map(String::from).collect();
-        if auth_strings.len() != 2 {
-            return Err((StatusCode::BAD_REQUEST, ()));
-        }
-        // We're looking for a Bearer token
-        //TODO: Maybe should forward or something on Basic
-        if auth_strings[0] != "Bearer" {
-            return Err((StatusCode::UNAUTHORIZED, ()));
-        }
+        let token = authorization.token();
 
         // parse for bearer token
         // TODO: frank_jwt is meant to verify iat, nbf etc, but doesn't.
-
         let dec_token = match decode(
-            &auth_strings[1],
+            token,
             &config.token_secret,
             Algorithm::HS256,
             &ValidationOptions::default(),
@@ -224,13 +221,13 @@ where
             Ok((_, payload)) => payload,
             Err(_) => {
                 warn!("Failed to decode user token");
-                return Err((StatusCode::UNAUTHORIZED, ()));
+                return Err(Authenticate::new(base_url));
             }
         };
 
         let trow_token = TrowToken {
             user: dec_token["sub"].to_string(),
-            token: auth_strings[1].clone(),
+            token: token.to_string(),
         };
 
         Ok(trow_token)

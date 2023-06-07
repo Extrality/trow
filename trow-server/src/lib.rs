@@ -57,23 +57,6 @@ impl TrowServerBuilder {
         self
     }
 
-    pub fn start_trow_sync(self) {
-        let server = self.get_server_future();
-        let rt = Runtime::new().expect("Failed to start Tokio runtime");
-
-        debug!("Trow backend service running");
-
-        match rt.block_on(server) {
-            Ok(()) => {
-                warn!("Trow backend shutting down");
-            }
-            Err(e) => {
-                eprintln!("Failure in Trow server: {:?}", e);
-                std::process::exit(1);
-            }
-        }
-    }
-
     pub fn get_server_future(self) -> impl Future<Output = Result<(), tonic::transport::Error>> {
         let ts = TrowServer::new(
             &self.data_path,

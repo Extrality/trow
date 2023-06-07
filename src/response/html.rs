@@ -8,6 +8,7 @@ impl<'a> IntoResponse for HTML<'a> {
     fn into_response(self) -> Response {
         Response::builder()
             .header(header::CONTENT_TYPE, "text/html")
+            .header(header::CONTENT_LENGTH, self.0.len())
             .body(body::Body::from(self.0.to_owned()))
             .unwrap()
             .into_response()

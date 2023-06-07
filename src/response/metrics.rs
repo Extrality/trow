@@ -8,6 +8,7 @@ impl IntoResponse for MetricsResponse {
     fn into_response(self) -> Response {
         Response::builder()
             .header(header::CONTENT_TYPE, "text/plain")
+            .header(header::CONTENT_LENGTH, self.metrics.len())
             .status(StatusCode::OK)
             .body(Body::from(self.metrics))
             .unwrap()

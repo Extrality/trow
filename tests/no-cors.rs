@@ -75,7 +75,7 @@ mod no_cors_tests {
             .await
             .unwrap();
 
-        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+        assert_eq!(resp.status(), StatusCode::METHOD_NOT_ALLOWED);
         assert_eq!(resp.headers().get(ACCESS_CONTROL_ALLOW_METHODS), None);
         assert_eq!(resp.headers().get(ACCESS_CONTROL_ALLOW_ORIGIN), None);
     }

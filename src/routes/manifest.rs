@@ -107,7 +107,7 @@ pub async fn put_image_manifest(
     Path((repo_name, reference)): Path<(String, String)>,
     chunk: BodyStream,
 ) -> Result<VerifiedManifest, Error> {
-    let base_url = get_base_url(headers, &state.config);
+    let base_url = get_base_url(&headers, &state.config);
 
     match state
         .client
@@ -122,10 +122,6 @@ pub async fn put_image_manifest(
         )),
         Err(StorageDriverError::InvalidName(name)) => Err(Error::NameInvalid(name)),
         Err(StorageDriverError::InvalidManifest) => Err(Error::ManifestInvalid("".to_string())),
-        Err(StorageDriverError::InvalidContentRange) => Err(Error::ManifestInvalid(format!(
-            "Content over data limit {} mebibytes",
-            state.config.max_blob_size
-        ))),
         Err(_) => Err(Error::InternalError),
     }
 }

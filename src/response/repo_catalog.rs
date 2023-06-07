@@ -10,6 +10,7 @@ impl IntoResponse for RepoCatalog {
 
         Response::builder()
             .header(header::CONTENT_TYPE, "application/json")
+            .header(header::CONTENT_LENGTH, json.len())
             .body(Body::from(json))
             .unwrap()
             .into_response()

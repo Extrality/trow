@@ -11,6 +11,12 @@ pub struct Authenticate {
     base_url: String,
 }
 
+impl Authenticate {
+    pub fn new(base_url: String) -> Self {
+        Authenticate { base_url }
+    }
+}
+
 impl IntoResponse for Authenticate {
     fn into_response(self) -> Response {
         let realm = self.base_url;

@@ -1,8 +1,7 @@
 use std::{error, fmt};
 
 use axum::body;
-use axum::headers::{ContentType, Header};
-use axum::http::StatusCode;
+use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -146,7 +145,8 @@ impl IntoResponse for Error {
             Error::NotFound => StatusCode::NOT_FOUND,
         };
         Response::builder()
-            .header(ContentType::name(), ContentType::json().to_string())
+            .header(header::CONTENT_TYPE, "application/json")
+            .header(header::CONTENT_LENGTH, json.len())
             .status(status)
             .body(body::Full::from(json))
             .unwrap()

@@ -2,11 +2,14 @@ use std::str;
 use std::sync::Arc;
 
 use axum::extract::State;
+use axum::http::header;
+use axum::http::method::Method;
 use axum::response::Response;
 use axum::routing::{get, post, put};
 use axum::Router;
 use hyper::http::HeaderValue;
 use tower::ServiceBuilder;
+use tower_http::{cors, trace};
 
 use crate::response::errors::Error;
 use crate::response::html::HTML;
@@ -22,26 +25,26 @@ mod metrics;
 mod readiness;
 
 macro_rules! route_5_levels {
-    ($app:ident, $route:expr, $($method:ident($handler1:expr, $handler2:expr, $handler3:expr, $handler4:expr, $handler5:expr)),*) => {
+    ($app:ident, $prefix:literal $route:literal, $($method:ident($handler1:expr, $handler2:expr, $handler3:expr, $handler4:expr, $handler5:expr)),*) => {
         $app = $app
             .route(
-                concat!("/v2/<one>", $route),
+                concat!($prefix, "/:one", $route),
                 $($method($handler1)).*
             )
             .route(
-                concat!("/v2/<one>/<two>", $route),
+                concat!($prefix, "/:one/:two", $route),
                 $($method($handler2)).*
             )
             .route(
-                concat!("/v2/<one>/<two>/<three>", $route),
+                concat!($prefix, "/:one/:two/:three", $route),
                 $($method($handler3)).*,
             )
             .route(
-                concat!("/v2/<one>/<two>/<three>/<four>", $route),
+                concat!($prefix, "/:one/:two/:three/:four", $route),
                 $($method($handler4)).*,
             )
             .route(
-                concat!("/v2/<one>/<two>/<three>/<four>/<five>", $route),
+                concat!($prefix, "/:one/:two/:three/:four/:five", $route),
                 $($method($handler5)).*,
             )
             ;
@@ -63,20 +66,20 @@ pub fn create_app(state: super::TrowServerState) -> Router {
     #[rustfmt::skip]
     route_5_levels!(
         app,
-        "/blobs/:digest",
+        "/v2" "/blobs/:digest",
         get(blob::get_blob, blob::get_blob_2level, blob::get_blob_3level, blob::get_blob_4level, blob::get_blob_5level),
         delete(blob::delete_blob, blob::delete_blob_2level, blob::delete_blob_3level, blob::delete_blob_4level, blob::delete_blob_5level)
     );
     #[rustfmt::skip]
     route_5_levels!(
         app,
-        "/blobs/uploads",
+        "/v2" "/blobs/uploads",
         post(blob::post_blob_upload, blob::post_blob_upload_2level, blob::post_blob_upload_3level, blob::post_blob_upload_4level, blob::post_blob_upload_5level)
     );
     #[rustfmt::skip]
     route_5_levels!(
         app,
-        "/blobs/uploads/:uuid",
+        "/v2" "/blobs/uploads/:uuid",
         put(blob::put_blob, blob::put_blob_2level, blob::put_blob_3level, blob::put_blob_4level, blob::put_blob_5level),
         patch(blob::patch_blob, blob::patch_blob_2level, blob::patch_blob_3level, blob::patch_blob_4level, blob::patch_blob_5level)
     );
@@ -86,13 +89,13 @@ pub fn create_app(state: super::TrowServerState) -> Router {
     #[rustfmt::skip]
     route_5_levels!(
         app,
-        "/tags/list",
+        "/v2" "/tags/list",
         get(catalog::list_tags, catalog::list_tags_2level, catalog::list_tags_3level, catalog::list_tags_4level, catalog::list_tags_5level)
     );
     #[rustfmt::skip]
     route_5_levels!(
         app,
-        "/manifest_history/:reference",
+        "" "/manifest_history/:reference",
         get(catalog::get_manifest_history, catalog::get_manifest_history_2level, catalog::get_manifest_history_3level, catalog::get_manifest_history_4level, catalog::get_manifest_history_5level)
     );
 
@@ -100,11 +103,28 @@ pub fn create_app(state: super::TrowServerState) -> Router {
     #[rustfmt::skip]
     route_5_levels!(
         app,
-        "/manifests/:reference",
+        "/v2" "/manifests/:reference",
         get(manifest::get_manifest, manifest::get_manifest_2level, manifest::get_manifest_3level, manifest::get_manifest_4level, manifest::get_manifest_5level),
         put(manifest::put_image_manifest, manifest::put_image_manifest_2level, manifest::put_image_manifest_3level, manifest::put_image_manifest_4level, manifest::put_image_manifest_5level),
         delete(manifest::delete_image_manifest, manifest::delete_image_manifest_2level, manifest::delete_image_manifest_3level, manifest::delete_image_manifest_4level, manifest::delete_image_manifest_5level)
     );
+
+    app = app.layer(trace::TraceLayer::new_for_http());
+
+    if let Some(domains) = &state.config.cors {
+        app = app.layer(
+            cors::CorsLayer::new()
+                .allow_credentials(true)
+                .allow_headers([header::AUTHORIZATION, header::CONTENT_TYPE])
+                .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+                .allow_origin(
+                    domains
+                        .iter()
+                        .map(|d| d.parse::<HeaderValue>().unwrap())
+                        .collect::<Vec<_>>(),
+                ),
+        );
+    }
 
     app.with_state(Arc::new(state)).layer(
         // Set API Version Header

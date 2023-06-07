@@ -23,11 +23,9 @@ pub fn test_client() -> Router {
             image_validation_config: None,
             service_name: String::new(),
             dry_run: false,
-            max_manifest_size: 1,
-            max_blob_size: 100,
             token_secret: "secret".to_string(),
             user: None,
-            cors: false,
+            cors: None,
             log_level: "error".to_string(),
         },
     };

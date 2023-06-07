@@ -33,7 +33,7 @@ pub async fn mutate_image(
 ) -> Json<AdmissionReview<DynamicObject>> {
     let req: Result<AdmissionRequest<_>, _> = image_data.try_into();
 
-    Json::from(match req {
+    let res = match req {
         Err(e) => {
             AdmissionResponse::invalid(format!("Invalid admission request: {:#}", e)).into_review()
         }
@@ -42,5 +42,7 @@ pub async fn mutate_image(
             .mutate_admission(&req, &state.config.service_name)
             .await
             .into_review(),
-    })
+    };
+
+    Json::from(res)
 }

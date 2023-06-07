@@ -9,9 +9,11 @@ impl IntoResponse for ManifestReader {
     fn into_response(self) -> Response {
         let content_type = self.content_type().to_string();
         let digest = self.digest().to_string();
+        let size = self.size();
         let stream = FramedRead::new(self.get_reader(), BytesCodec::new());
         Response::builder()
             .header(header::CONTENT_TYPE, content_type)
+            .header(header::CONTENT_LENGTH, size)
             .header("Docker-Content-Digest", digest)
             .body(body::StreamBody::from(stream))
             .unwrap()

@@ -136,7 +136,7 @@ mod cli {
     #[test]
     fn cors() {
         get_command()
-            .args(["--enable-cors"])
+            .args(["--cors", "ftp://trow.test"])
             .assert()
             .success()
             .stdout(predicate::str::contains(
@@ -147,18 +147,18 @@ mod cli {
     #[test]
     fn file_size_parsing() {
         get_command()
-            .args(["--max-manifest-size", "3"])
+            .args(["--max-body-size", "3"])
             .assert()
             .success()
             .stdout(predicate::str::contains("manifest size: 3"));
 
         get_command()
-            .args(["--max-manifest-size", "-4"])
+            .args(["--max-body-size", "-4"])
             .assert()
             .failure();
 
         get_command()
-            .args(["--max-manifest-size", "1.1"])
+            .args(["--max-body-size", "1.1"])
             .assert()
             .failure();
     }

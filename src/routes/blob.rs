@@ -3,6 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use axum::extract::{BodyStream, Path, Query, State};
 use axum::http::header::HeaderMap;
+use log::error;
 
 use crate::registry_interface::{digest, BlobReader, BlobStorage, ContentInfo, StorageDriverError};
 use crate::response::errors::Error;
@@ -40,7 +41,7 @@ pub async fn get_blob(
         Ok(r) => Ok(r),
         Err(e) => {
             log::error!("Error getting blob: {}", e);
-            Err(Error::BlobUnknown)
+            Err(Error::NotFound)
         }
     }
 }
@@ -117,9 +118,15 @@ pub async fn put_blob(
     headers: HeaderMap,
     _auth_user: TrowToken,
     State(state): State<Arc<TrowServerState>>,
-    Path((repo, uuid, digest)): Path<(String, String, String)>,
+    Path((repo, uuid)): Path<(String, String)>,
+    Query(digest): Query<DigestQuery>,
     chunk: BodyStream,
 ) -> Result<AcceptedUpload, Error> {
+    let digest = match digest.digest {
+        Some(d) => d,
+        None => return Err(Error::DigestInvalid),
+    };
+
     let size = match state
         .client
         .store_blob_chunk(&repo, &uuid, None, chunk)
@@ -132,7 +139,10 @@ pub async fn put_blob(
                 "Invalid Content Range".to_string(),
             ))
         }
-        Err(_) => return Err(Error::InternalError),
+        Err(e) => {
+            error!("Error storing blob chunk: {}", e);
+            return Err(Error::InternalError);
+        }
     };
 
     let digest_obj = digest::parse(&digest).map_err(|_| Error::DigestInvalid)?;
@@ -142,11 +152,14 @@ pub async fn put_blob(
         .await
         .map_err(|e| match e {
             StorageDriverError::InvalidDigest => Error::DigestInvalid,
-            _ => Error::InternalError,
+            e => {
+                error!("Error completing blob upload: {}", e);
+                Error::InternalError
+            }
         })?;
 
     Ok(AcceptedUpload::new(
-        get_base_url(headers, &state.config),
+        get_base_url(&headers, &state.config),
         digest_obj,
         RepoName(repo),
         Uuid(uuid),
@@ -157,14 +170,16 @@ pub async fn put_blob_2level(
     headers: HeaderMap,
     auth_user: TrowToken,
     state: State<Arc<TrowServerState>>,
-    Path((one, two, uuid, digest)): Path<(String, String, String, String)>,
+    Path((one, two, uuid)): Path<(String, String, String)>,
+    digest: Query<DigestQuery>,
     chunk: BodyStream,
 ) -> Result<AcceptedUpload, Error> {
     put_blob(
         headers,
         auth_user,
         state,
-        Path((format!("{one}/{two}"), uuid, digest)),
+        Path((format!("{one}/{two}"), uuid)),
+        digest,
         chunk,
     )
     .await
@@ -173,14 +188,16 @@ pub async fn put_blob_3level(
     headers: HeaderMap,
     auth_user: TrowToken,
     state: State<Arc<TrowServerState>>,
-    Path((one, two, three, uuid, digest)): Path<(String, String, String, String, String)>,
+    Path((one, two, three, uuid)): Path<(String, String, String, String)>,
+    digest: Query<DigestQuery>,
     chunk: BodyStream,
 ) -> Result<AcceptedUpload, Error> {
     put_blob(
         headers,
         auth_user,
         state,
-        Path((format!("{one}/{two}/{three}"), uuid, digest)),
+        Path((format!("{one}/{two}/{three}"), uuid)),
+        digest,
         chunk,
     )
     .await
@@ -189,21 +206,16 @@ pub async fn put_blob_4level(
     headers: HeaderMap,
     auth_user: TrowToken,
     state: State<Arc<TrowServerState>>,
-    Path((one, two, three, four, uuid, digest)): Path<(
-        String,
-        String,
-        String,
-        String,
-        String,
-        String,
-    )>,
+    Path((one, two, three, four, uuid)): Path<(String, String, String, String, String)>,
+    digest: Query<DigestQuery>,
     chunk: BodyStream,
 ) -> Result<AcceptedUpload, Error> {
     put_blob(
         headers,
         auth_user,
         state,
-        Path((format!("{one}/{two}/{three}/{four}"), uuid, digest)),
+        Path((format!("{one}/{two}/{three}/{four}"), uuid)),
+        digest,
         chunk,
     )
     .await
@@ -212,8 +224,7 @@ pub async fn put_blob_5level(
     headers: HeaderMap,
     auth_user: TrowToken,
     state: State<Arc<TrowServerState>>,
-    Path((one, two, three, four, five, uuid, digest)): Path<(
-        String,
+    Path((one, two, three, four, five, uuid)): Path<(
         String,
         String,
         String,
@@ -221,13 +232,15 @@ pub async fn put_blob_5level(
         String,
         String,
     )>,
+    digest: Query<DigestQuery>,
     chunk: BodyStream,
 ) -> Result<AcceptedUpload, Error> {
     put_blob(
         headers,
         auth_user,
         state,
-        Path((format!("{one}/{two}/{three}/{four}/{five}"), uuid, digest)),
+        Path((format!("{one}/{two}/{three}/{four}/{five}"), uuid)),
+        digest,
         chunk,
     )
     .await
@@ -268,7 +281,7 @@ pub async fn patch_blob(
             let repo_name = RepoName(repo);
             let uuid = Uuid(uuid);
             Ok(UploadInfo::new(
-                get_base_url(headers, &state.config),
+                get_base_url(&headers, &state.config),
                 uuid,
                 repo_name,
                 (0, (stored.total_stored as u32).saturating_sub(1)), // First byte is 0
@@ -400,13 +413,14 @@ pub async fn post_blob_upload(
             _ => Error::InternalError,
         })?;
 
-    if let Some(digest) = digest.digest {
+    if digest.digest.is_some() {
         // Have a monolithic upload with data
         return put_blob(
             headers,
             auth_user,
             State(state),
-            Path((repo_name, uuid, digest)),
+            Path((repo_name, uuid)),
+            Query(digest),
             data,
         )
         .await
@@ -414,7 +428,7 @@ pub async fn post_blob_upload(
     }
 
     Ok(Upload::Info(UploadInfo::new(
-        get_base_url(headers, &state.config),
+        get_base_url(&headers, &state.config),
         Uuid(uuid),
         RepoName(repo_name.clone()),
         (0, 0),
@@ -510,7 +524,7 @@ pub async fn delete_blob(
         .client
         .delete_blob(&one, &digest)
         .await
-        .map_err(|_| Error::BlobUnknown)?;
+        .map_err(|_| Error::NotFound)?;
     Ok(BlobDeleted {})
 }
 pub async fn delete_blob_2level(
