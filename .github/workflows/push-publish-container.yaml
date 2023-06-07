@@ -1,5 +1,5 @@
 # Also builds the Docker images, but we want this name on the badge
-name: OCI Conformance
+name: publish container
 
 on:
   push:
