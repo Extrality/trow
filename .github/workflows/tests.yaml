@@ -15,6 +15,7 @@ jobs:
     env:
       SCCACHE_GHA_ENABLED: "true"
       RUSTC_WRAPPER: "sccache"
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v3
       - uses: rui314/setup-mold@v1
@@ -43,6 +44,7 @@ jobs:
       BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
     outputs:
       container-image: ${{ steps.meta.outputs.tags }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v3
       - uses: rui314/setup-mold@v1
@@ -80,6 +82,7 @@ jobs:
     services:
       trow:
         image: ${{ needs.build.container-image }}
+    timeout-minutes: 10
     steps:
       - name: Run OCI Distribution Spec conformance tests
         uses: opencontainers/distribution-spec@main
@@ -97,6 +100,7 @@ jobs:
   purge-images:
     name: Delete old dev images
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/delete-package-versions@v4
         with:
@@ -110,6 +114,7 @@ jobs:
     needs: build
     env:
       IMAGE: ${{ needs.build.container-image }}
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v3

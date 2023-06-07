@@ -12,6 +12,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 RUN mkdir --parents /data/layers && mkdir /data/scratch && mkdir /certs
 # keep this late for concurrency
 COPY ./trow /trow
-RUN chown -R trow /data /certs /install
+RUN chown -R trow /data /certs
 USER trow
 ENTRYPOINT ["env", "RUST_LOG=info", "/trow]
