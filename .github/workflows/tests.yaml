@@ -93,7 +93,7 @@ jobs:
 
 
   purge-images:
-    name: Delete old images from ghcr.io
+    name: Delete old dev images
     runs-on: ubuntu-latest
     steps:
       - uses: actions/delete-package-versions@v4
