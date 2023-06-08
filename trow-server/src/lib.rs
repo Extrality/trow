@@ -10,12 +10,10 @@ mod temporary_file;
 use std::future::Future;
 
 pub use admission::ImageValidationConfig;
-use log::{debug, warn};
 pub use proxy_auth::RegistryProxyConfig;
 use server::trow_server::admission_controller_server::AdmissionControllerServer;
 use server::trow_server::registry_server::RegistryServer;
 use server::TrowServer;
-use tokio::runtime::Runtime;
 use tonic::transport::Server;
 
 pub struct TrowServerBuilder {

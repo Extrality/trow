@@ -19,7 +19,6 @@ pub mod metrics;
 pub mod readiness;
 pub mod repo_catalog;
 pub mod tag_list;
-mod test_helper;
 pub mod trow_token;
 pub mod upload;
 pub mod upload_info;
