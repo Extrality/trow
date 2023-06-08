@@ -65,7 +65,7 @@ mod interface_tests {
         let digest = digest::sha256_tag_digest(BufReader::new(config)).unwrap();
         let resp = cl
             .post(&format!(
-                "{}/v2/{}/blobs/uploads?digest={}",
+                "{}/v2/{}/blobs/uploads/?digest={}",
                 TROW_ADDRESS, "config", digest
             ))
             .body(config)

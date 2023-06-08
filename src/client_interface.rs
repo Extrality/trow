@@ -79,7 +79,7 @@ impl ManifestStorage for ClientInterface {
     ) -> Result<ManifestReader, StorageDriverError> {
         let rn = RepoName(name.to_string());
         let mr = self.get_reader_for_manifest(&rn, tag).await.map_err(|e| {
-            warn!("Error getting manifest {:?}", e);
+            warn!("Error getting manifest: {}", e);
             StorageDriverError::Internal
         })?;
 
@@ -135,7 +135,7 @@ impl BlobStorage for ClientInterface {
     ) -> Result<BlobReader, StorageDriverError> {
         let rn = RepoName(name.to_string());
         let br = self.get_reader_for_blob(&rn, digest).await.map_err(|e| {
-            warn!("Error getting manifest {:?}", e);
+            warn!("Error getting blob: {}", e);
             StorageDriverError::Internal
         })?;
 

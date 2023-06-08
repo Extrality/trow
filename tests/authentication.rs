@@ -70,7 +70,7 @@ mod authentication_tests {
 
     async fn test_auth_redir(cl: &reqwest::Client) {
         let resp = cl
-            .get(&(TROW_ADDRESS.to_owned() + "/v2"))
+            .get(&(TROW_ADDRESS.to_owned() + "/v2/"))
             .send()
             .await
             .unwrap();

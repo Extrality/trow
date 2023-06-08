@@ -69,7 +69,7 @@ mod interface_tests {
         assert_eq!(resp.headers().get(DIST_API_HEADER).unwrap(), "registry/2.0");
 
         //All v2 registries should respond with a 200 to this
-        let resp = cl.get(&(ORIGIN.to_owned() + "/v2")).send().await.unwrap();
+        let resp = cl.get(&(ORIGIN.to_owned() + "/v2/")).send().await.unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
         assert_eq!(resp.headers().get(DIST_API_HEADER).unwrap(), "registry/2.0");
     }
@@ -160,7 +160,7 @@ mod interface_tests {
 
     async fn upload_with_put(cl: &reqwest::Client, name: &str) {
         let resp = cl
-            .post(&format!("{}/v2/{}/blobs/uploads", ORIGIN, name))
+            .post(&format!("{}/v2/{}/blobs/uploads/", ORIGIN, name))
             .send()
             .await
             .unwrap();
@@ -204,7 +204,7 @@ mod interface_tests {
         let digest = digest::sha256_tag_digest(BufReader::new(config)).unwrap();
         let resp = cl
             .post(&format!(
-                "{}/v2/{}/blobs/uploads?digest={}",
+                "{}/v2/{}/blobs/uploads/?digest={}",
                 ORIGIN, name, digest
             ))
             .body(config)

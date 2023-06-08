@@ -40,7 +40,7 @@ pub fn kill_gracefully(child: &Child) {
 #[allow(dead_code)]
 pub async fn upload_layer(cl: &reqwest::Client, trow_address: &str, name: &str, tag: &str) {
     let resp = cl
-        .post(&format!("{}/v2/{}/blobs/uploads", trow_address, name))
+        .post(&format!("{}/v2/{}/blobs/uploads/", trow_address, name))
         .send()
         .await
         .expect("Error uploading layer");
