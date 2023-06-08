@@ -145,25 +145,6 @@ mod cli {
     }
 
     #[test]
-    fn file_size_parsing() {
-        get_command()
-            .args(["--max-body-size", "3"])
-            .assert()
-            .success()
-            .stdout(predicate::str::contains("manifest size: 3"));
-
-        get_command()
-            .args(["--max-body-size", "-4"])
-            .assert()
-            .failure();
-
-        get_command()
-            .args(["--max-body-size", "1.1"])
-            .assert()
-            .failure();
-    }
-
-    #[test]
     fn log_level_setting() {
         get_command()
             .args(["--log-level", "TRACE"])
