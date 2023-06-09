@@ -1,6 +1,4 @@
-[![](https://github.com/extrality/trow/workflows/Tests/badge.svg)](https://github.com/extrality/trow/actions)
-
-[![](https://github.com/extrality/trow/workflows/OCI%20Conformance/badge.svg)](https://github.com/extrality/trow/actions)
+[![Tests](https://github.com/Extrality/trow/actions/workflows/pr-tests.yaml/badge.svg)](https://github.com/Extrality/trow/actions/workflows/pr-tests.yaml)
 
 # Trow
 Image Management for Kubernetes.
