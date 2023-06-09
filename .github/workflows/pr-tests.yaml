@@ -24,6 +24,8 @@ jobs:
         uses: arduino/setup-protoc@v2
       - name: Cache compilation artefacts
         uses: mozilla-actions/sccache-action@v0.0.3
+      - name: Cargo fmt
+        run: cargo fmt --all -- --check
       - name: Run trow-server test suite
         run: cargo test -p trow-server
       - name: Run Trow test suite
@@ -149,19 +151,10 @@ jobs:
           docker push 127.0.0.1/test/nginx:alpine
 
 
-  lint:
-    name: Typos and Lint
+  typos:
+    name: Typos
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: read
-      statuses: write
     steps:
     - uses: actions/checkout@v3
     - name: Check spelling
       uses: crate-ci/typos@v1.0.4
-    - name: Lint code
-      uses: github/super-linter@v5
-      env:
-        DEFAULT_BRANCH: main
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
