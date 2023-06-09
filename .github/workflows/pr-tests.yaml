@@ -149,8 +149,8 @@ jobs:
           docker push 127.0.0.1/test/nginx:alpine
 
 
-  typos:
-    name: Spell Check with Typos
+  lint:
+    name: Typos and Lint
     runs-on: ubuntu-latest
     permissions:
       contents: read
