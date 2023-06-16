@@ -111,7 +111,35 @@ pub fn create_app(state: super::TrowServerState) -> Router {
         delete(manifest::delete_image_manifest, manifest::delete_image_manifest_2level, manifest::delete_image_manifest_3level, manifest::delete_image_manifest_4level, manifest::delete_image_manifest_5level)
     );
 
-    app = app.layer(trace::TraceLayer::new_for_http());
+
+    // use axum::http::{Request, Response, HeaderMap, StatusCode};
+    use hyper::Body;
+    use bytes::Bytes;
+    use tower::ServiceBuilder;
+    use tracing::Level;
+    use tower_http::{
+        LatencyUnit,
+        trace::{TraceLayer, DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse},
+    };
+    use std::time::Duration;
+
+    app = app.layer(trace::TraceLayer::new_for_http()
+    .on_request(|request: &axum::http::Request<Body>, _span: &tracing::Span| {
+        tracing::info!("started {} {}", request.method(), request.uri().path())
+    })
+
+    // .make_span_with(
+    //     DefaultMakeSpan::default().level(Level::INFO)
+    // )
+    // .on_request(
+    //     DefaultOnRequest::default().level(Level::INFO)
+    // )
+    // .on_response(
+    //     DefaultOnResponse::default()
+    //         .level(Level::INFO)
+    //         // .latency_unit(LatencyUnit::Micros)
+    // )
+);
 
     if let Some(domains) = &state.config.cors {
         app = app.layer(
