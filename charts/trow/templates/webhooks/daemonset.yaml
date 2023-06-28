@@ -50,6 +50,9 @@ spec:
           {{- if (not (empty .Values.trow.validation.config)) }}
           - "--image-validation-config-file=/etc/trow/validation.yaml"
           {{- end }}
+        env:
+        - name: RUST_LOG
+          value: {{ .Values.trow.logLevel }}
         ports:
         - name: webhook
           containerPort: 8443
