@@ -559,7 +559,7 @@ impl ClientInterface {
         reference: &str,
     ) -> Result<ManifestReader> {
         event!(
-            Level::INFO,
+            Level::DEBUG,
             "Getting read location for {} with ref {}",
             repo_name,
             reference
@@ -636,7 +636,7 @@ impl ClientInterface {
         digest: &Digest,
     ) -> Result<BlobReader> {
         event!(
-            Level::INFO,
+            Level::DEBUG,
             "Getting read location for blob {} in {}",
             digest,
             repo_name

@@ -1,5 +1,6 @@
 use std::str;
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::body::{boxed, Body};
 use axum::extract::State;
@@ -111,35 +112,19 @@ pub fn create_app(state: super::TrowServerState) -> Router {
         delete(manifest::delete_image_manifest, manifest::delete_image_manifest_2level, manifest::delete_image_manifest_3level, manifest::delete_image_manifest_4level, manifest::delete_image_manifest_5level)
     );
 
-
-    // use axum::http::{Request, Response, HeaderMap, StatusCode};
-    use hyper::Body;
-    use bytes::Bytes;
-    use tower::ServiceBuilder;
-    use tracing::Level;
-    use tower_http::{
-        LatencyUnit,
-        trace::{TraceLayer, DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse},
-    };
-    use std::time::Duration;
-
-    app = app.layer(trace::TraceLayer::new_for_http()
-    .on_request(|request: &axum::http::Request<Body>, _span: &tracing::Span| {
-        tracing::info!("started {} {}", request.method(), request.uri().path())
-    })
-
-    // .make_span_with(
-    //     DefaultMakeSpan::default().level(Level::INFO)
-    // )
-    // .on_request(
-    //     DefaultOnRequest::default().level(Level::INFO)
-    // )
-    // .on_response(
-    //     DefaultOnResponse::default()
-    //         .level(Level::INFO)
-    //         // .latency_unit(LatencyUnit::Micros)
-    // )
-);
+    app = app.layer(
+        trace::TraceLayer::new_for_http()
+            .make_span_with(|req: &axum::http::Request<Body>| {
+                tracing::info_span!(
+                    "request",
+                    method = req.method().as_str(),
+                    path = req.uri().path(),
+                )
+            })
+            .on_response(|_: &_, duration: Duration, _span: &tracing::Span| {
+                tracing::info!("done in {:?}", duration)
+            }),
+    );
 
     if let Some(domains) = &state.config.cors {
         app = app.layer(

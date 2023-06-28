@@ -11,18 +11,15 @@ mod users;
 
 use std::net::SocketAddr;
 use std::path::Path;
-use std::str::FromStr;
 use std::sync::Arc;
 use std::{env, fs};
 
 use anyhow::{anyhow, Context, Result};
 use axum::extract::FromRef;
 use axum_server::tls_rustls::RustlsConfig;
-
 use client_interface::ClientInterface;
 use futures::Future;
 use thiserror::Error;
-use tracing::metadata::ParseLevelError;
 use tracing::{event, Level};
 use trow_server::{ImageValidationConfig, RegistryProxyConfig};
 use uuid::Uuid;

@@ -221,14 +221,14 @@ async fn get_bearer_auth_token(
     auth: &RegistryProxyConfig,
 ) -> Result<String> {
     let mut bearer_param_map = get_bearer_param_map(www_authenticate_header);
-    event!(Level::INFO, "bearer param map: {:?}", bearer_param_map);
+    event!(Level::DEBUG, "bearer param map: {:?}", bearer_param_map);
     let realm = bearer_param_map
         .get("realm")
         .cloned()
         .ok_or_else(|| anyhow!("Expected realm key in authenticate header"))?;
 
     bearer_param_map.remove("realm");
-    event!(Level::INFO, "Realm is {}", realm);
+    event!(Level::DEBUG, "Realm is {}", realm);
     let mut request = cl.get(realm.as_str()).query(&bearer_param_map);
 
     if let Some(u) = &auth.username {
@@ -244,7 +244,6 @@ async fn get_bearer_auth_token(
         .send()
         .await
         .with_context(|| format!("Failed to send authenticate to {} request", realm))?;
-    event!(Level::INFO, "resp: {:?}", resp);
     if !resp.status().is_success() {
         return Err(anyhow!("Failed to authenticate to {}", realm));
     }

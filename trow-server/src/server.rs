@@ -364,7 +364,7 @@ impl TrowServer {
         digest: &str,
     ) -> Result<()> {
         if self.get_catalog_path_for_blob(digest)?.exists() {
-            event!(Level::INFO, "Already have blob {}", digest);
+            event!(Level::DEBUG, "Already have blob {}", digest);
             return Ok(());
         }
         let path = self.scratch_path.join(digest);
@@ -372,7 +372,7 @@ impl TrowServer {
             Some(f) => f,
             None => {
                 event!(
-                    Level::INFO,
+                    Level::DEBUG,
                     "Waiting for concurrently fetched blob {}",
                     digest
                 );
@@ -561,14 +561,21 @@ impl TrowServer {
                         {
                             Ok(_) => return Ok(digest),
                             Err(e) => {
-                                event!(Level::DEBUG, "Internal error updating tag for proxied image ({})", e)
+                                event!(
+                                    Level::DEBUG,
+                                    "Internal error updating tag for proxied image ({})",
+                                    e
+                                )
                             }
                         },
                         Ok(_) => return Ok(digest),
                         Err(e) => event!(Level::WARN, "Failed to download proxied image: {}", e),
                     };
                 }
-                false => event!(Level::WARN, "Missing manifest for proxied image, proxy client not available"),
+                false => event!(
+                    Level::WARN,
+                    "Missing manifest for proxied image, proxy client not available"
+                ),
             }
         }
 
