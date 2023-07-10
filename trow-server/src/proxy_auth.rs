@@ -27,6 +27,7 @@ pub enum HttpAuth {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct RegistryProxiesConfig {
     pub registries: Vec<SingleRegistryProxyConfig>,
+    #[serde(default)]
     pub offline: bool,
 }
 
